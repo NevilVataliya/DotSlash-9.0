@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Pool from "../models/Pool.js";
+import { User } from "../models/User.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
@@ -187,10 +188,84 @@ const poolStatus = asyncHandler(async (req, res) => {
   );
 });
 
+
+// 6. Get all available pools (for frontend display when not searching)
+const getAllPools = asyncHandler(async (req, res) => {
+  const pools = await Pool.find({ status: "scheduled", availableSeats: { $gt: 0 } })
+    .populate("driverId", "fullName email username")
+    .sort({ departureTime: 1 });
+
+  return res.status(200).json(
+    new ApiResponse(200, pools, "All available pools fetched successfully")
+  );
+});
+
+// 7. Get driver's own pools (for "My Rides" and "Incoming Requests")
+const getDriverPools = asyncHandler(async (req, res) => {
+  const { driverId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(driverId)) {
+    throw new ApiError(400, "Invalid driver ID.");
+  }
+
+  const pools = await Pool.find({ driverId })
+    .populate("passengers.userId", "fullName email username")
+    .sort({ departureTime: -1 });
+
+  return res.status(200).json(
+    new ApiResponse(200, pools, "Driver pools fetched successfully")
+  );
+});
+
+// 8. Driver declines a pool request
+const declinePool = asyncHandler(async (req, res) => {
+  const { poolId, passengerId } = req.body;
+
+  const pool = await Pool.findById(poolId);
+  if (!pool) {
+    throw new ApiError(404, "Pool not found.");
+  }
+
+  const passengerIndex = pool.passengers.findIndex(p => p.userId.toString() === passengerId);
+  if (passengerIndex === -1) {
+    throw new ApiError(404, "Passenger request not found in this pool.");
+  }
+
+  const passengerRequest = pool.passengers[passengerIndex];
+  if (passengerRequest.status !== "pending") {
+    throw new ApiError(400, "This request is already " + passengerRequest.status);
+  }
+
+  pool.passengers[passengerIndex].status = "rejected";
+  await pool.save();
+
+  return res.status(200).json(
+    new ApiResponse(200, pool, "Passenger request declined.")
+  );
+});
+
+// 9. Get a demo user for frontend mapping
+const getDemoUser = asyncHandler(async (req, res) => {
+  let user = await User.findOne();
+  if (!user) {
+     user = await User.create({
+       username: "demo" + Date.now(),
+       email: "demo" + Date.now() + "@example.com",
+       fullName: "Demo Driver",
+       password: "password123"
+     });
+  }
+  return res.status(200).json(new ApiResponse(200, user, "Demo user fetched"));
+});
+
 export {
   userIsReadyToPool,
   checkAvailableForPool,
   requestPool,
   acceptPool,
-  poolStatus
+  declinePool,
+  poolStatus,
+  getAllPools,
+  getDriverPools,
+  getDemoUser
 };
