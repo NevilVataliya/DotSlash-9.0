@@ -4,6 +4,7 @@ import MapView from './components/MapView';
 import RouteInput from './components/RouteInput';
 import RouteComparison from './components/RouteComparison';
 import DataDashboard from './components/DataDashboard';
+import RidePool from './components/RidePool';
 import { VEHICLE_PROFILES, PREDEFINED_LOCATIONS } from './data/demoData';
 
 const BACKEND_URL = 'http://localhost:3001/api/route';
@@ -15,6 +16,9 @@ const ROUTE_CONFIG = {
 };
 
 export default function App() {
+  // Navigation state
+  const [activeTab, setActiveTab] = useState('route'); // 'route' | 'pool'
+
   // Route input state
   const [source, setSource] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -102,46 +106,74 @@ export default function App() {
 
       {/* Left sidebar */}
       <div className="sidebar">
-        <RouteInput
-          source={source}
-          setSource={setSource}
-          destination={destination}
-          setDestination={setDestination}
-          stops={stops}
-          setStops={setStops}
-          vehicleId={vehicleId}
-          setVehicleId={setVehicleId}
-          vehicles={VEHICLE_PROFILES}
-          onPlanRoute={handlePlanRoute}
-          isLoading={isLoading}
-        />
+        {/* Navigation Tabs */}
+        <div className="nav-tabs">
+          <button 
+            className={`nav-tab ${activeTab === 'route' ? 'active' : ''}`}
+            onClick={() => setActiveTab('route')}
+          >
+            Smart Route
+          </button>
+          <button 
+            className={`nav-tab ${activeTab === 'pool' ? 'active' : ''}`}
+            onClick={() => setActiveTab('pool')}
+          >
+            Ride Pool
+          </button>
+        </div>
 
-        {routes && (
-          <RouteComparison
-            routes={routes}
-            selectedRoute={selectedRoute}
-            onSelectRoute={handleSelectRoute}
-            vehicle={vehicle}
-          />
+        {activeTab === 'route' ? (
+          <>
+            <RouteInput
+              source={source}
+              setSource={setSource}
+              destination={destination}
+              setDestination={setDestination}
+              stops={stops}
+              setStops={setStops}
+              vehicleId={vehicleId}
+              setVehicleId={setVehicleId}
+              vehicles={VEHICLE_PROFILES}
+              onPlanRoute={handlePlanRoute}
+              isLoading={isLoading}
+            />
+
+            {routes && (
+              <RouteComparison
+                routes={routes}
+                selectedRoute={selectedRoute}
+                onSelectRoute={handleSelectRoute}
+                vehicle={vehicle}
+              />
+            )}
+          </>
+        ) : (
+          <div className="panel animate-slide-in">
+            <RidePool />
+          </div>
         )}
       </div>
 
-      {/* Bottom data dashboard */}
-      <DataDashboard
-        route={activeRoute}
-        vehicle={vehicle}
-        show={showDashboard && !!routes}
-      />
+      {/* Bottom data dashboard - only show for route tab */}
+      {activeTab === 'route' && (
+        <>
+          <DataDashboard
+            route={activeRoute}
+            vehicle={vehicle}
+            show={showDashboard && !!routes}
+          />
 
-      {/* Dashboard toggle */}
-      {routes && (
-        <button
-          className="dashboard-toggle"
-          onClick={() => setShowDashboard(!showDashboard)}
-          title={showDashboard ? 'Hide dashboard' : 'Show dashboard'}
-        >
-          {showDashboard ? '▼' : '▲'}
-        </button>
+          {/* Dashboard toggle */}
+          {routes && (
+            <button
+              className="dashboard-toggle"
+              onClick={() => setShowDashboard(!showDashboard)}
+              title={showDashboard ? 'Hide dashboard' : 'Show dashboard'}
+            >
+              {showDashboard ? '▼' : '▲'}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
