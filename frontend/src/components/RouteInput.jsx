@@ -5,25 +5,53 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
   const [query, setQuery] = useState(value ? value.name : '');
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (value) setQuery(value.name);
   }, [value]);
 
+  // Debounced API Search for locations (Geocoding)
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      // Only search if user typed > 2 chars and it's not simply matching the currently selected value
+      if (query.length > 2 && (!value || query !== value.name)) {
+        setIsLoading(true);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+          const data = await res.json();
+          const apiSuggestions = data.map(item => ({
+            name: item.display_name,
+            lat: parseFloat(item.lat),
+            lng: parseFloat(item.lon),
+            coordinates: [parseFloat(item.lon), parseFloat(item.lat)] // [lng, lat] format
+          }));
+          
+          // Also include any local predefined matches
+          const localMatch = PREDEFINED_LOCATIONS.filter(loc =>
+            loc.name.toLowerCase().includes(query.toLowerCase())
+          );
+          
+          setSuggestions([...localMatch, ...apiSuggestions]);
+          setShowSuggestions(true);
+        } catch (error) {
+          console.error("Geocoding failed", error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else if (query.length === 0) {
+        setSuggestions(PREDEFINED_LOCATIONS);
+      }
+    }, 600); // 600ms debounce
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query, value]);
+
   function handleChange(e) {
     const q = e.target.value;
     setQuery(q);
-    onChange(null); // reset selected
-    if (q.length > 0) {
-      const filtered = PREDEFINED_LOCATIONS.filter(loc =>
-        loc.name.toLowerCase().includes(q.toLowerCase())
-      );
-      setSuggestions(filtered);
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
-    }
+    onChange(null); // reset actual selected object when typing new text
   }
 
   function handleSelect(loc) {
@@ -33,14 +61,10 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
   }
 
   function handleFocus() {
-    if (query.length > 0) {
-      const filtered = PREDEFINED_LOCATIONS.filter(loc =>
-        loc.name.toLowerCase().includes(query.toLowerCase())
-      );
-      setSuggestions(filtered);
-      setShowSuggestions(true);
-    } else {
+    if (query.length === 0) {
       setSuggestions(PREDEFINED_LOCATIONS);
+      setShowSuggestions(true);
+    } else if (suggestions.length > 0) {
       setShowSuggestions(true);
     }
   }
@@ -49,25 +73,84 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
     setTimeout(() => setShowSuggestions(false), 200);
   }
 
+  // Fetch Current location using HTML5 Geolocation API
+  function handleUseCurrentLocation() {
+    if (!("geolocation" in navigator)) {
+      alert("Geolocation is not supported by your browser");
+      return;
+    }
+
+    setQuery("Locating...");
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const { latitude, longitude } = position.coords;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        const data = await res.json();
+        const locName = data.display_name || "Current Location";
+        const loc = { name: locName, lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
+        setQuery(locName);
+        onSelect(loc);
+      } catch (error) {
+        const loc = { name: "Current Location", lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
+        setQuery("Current Location");
+        onSelect(loc);
+      }
+    }, (err) => {
+      console.error(err);
+      alert("Unable to retrieve your location");
+      setQuery("");
+    });
+  }
+
   return (
-    <div className="input-row" style={{ position: 'relative' }}>
+    <div className="input-row" style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
       <span className={`input-dot ${dotClass}`}></span>
-      <input
-        ref={inputRef}
-        className={`route-input${value ? ' has-value' : ''}`}
-        type="text"
-        placeholder={placeholder}
-        value={query}
-        onChange={handleChange}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-      />
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="suggestions-dropdown">
+      <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+        <input
+          ref={inputRef}
+          className={`route-input${value ? ' has-value' : ''}`}
+          style={{ paddingRight: '40px', width: '100%' }}
+          type="text"
+          placeholder={placeholder}
+          value={query}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+        />
+        {/* Geolocation Button */}
+        <button 
+          onClick={handleUseCurrentLocation}
+          title="Use Current Location"
+          style={{
+            position: 'absolute',
+            right: '8px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '18px',
+            color: 'var(--accent, #448AFF)',
+            padding: '4px'
+          }}
+        >
+          📍
+        </button>
+      </div>
+      
+      {showSuggestions && (
+        <div className="suggestions-dropdown" style={{ zIndex: 1000, position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#1a1d24', border: '1px solid #333', borderRadius: '4px', marginTop: '4px', maxHeight: '200px', overflowY: 'auto' }}>
+          {isLoading && <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>Searching...</div>}
+          {!isLoading && suggestions.length === 0 && query.length > 2 && (
+            <div style={{ padding: '8px', color: '#888', fontSize: '14px' }}>No results found</div>
+          )}
           {suggestions.map((loc, i) => (
-            <div key={i} className="suggestion-item" onMouseDown={() => handleSelect(loc)}>
-              <span className="loc-icon">📍</span>
-              {loc.name}
+            <div 
+              key={i} 
+              className="suggestion-item" 
+              onMouseDown={() => handleSelect(loc)}
+              style={{ padding: '8px', cursor: 'pointer', borderBottom: '1px solid #333', display: 'flex', alignItems: 'flex-start', fontSize: '14px' }}
+            >
+              <span className="loc-icon" style={{ marginRight: '8px' }}>🏢</span>
+              <span style={{ wordBreak: 'break-word', color: '#ececec' }}>{loc.name}</span>
             </div>
           ))}
         </div>
