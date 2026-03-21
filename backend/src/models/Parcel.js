@@ -85,7 +85,7 @@ parcelSchema.pre("save", function(next) {
     // In a production app, we would also factor in the distance between pickup and dropoff.
     this.deliveryPrice = basePrice + (this.weight * pricePerKg);
   }
-  next();
+  // next();
 });
 
 export default mongoose.model("Parcel", parcelSchema);
