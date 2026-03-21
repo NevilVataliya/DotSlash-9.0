@@ -12,7 +12,7 @@ import { getElevationGain } from './elevationService.js';
  */
 export async function optimizeRoute(route, vehicleId = 'sedan', weatherOverride = null) {
   const vehicle = VEHICLE_PROFILES.find(v => v.id === vehicleId) || VEHICLE_PROFILES[0];
-  
+
   const distance = route.distance;
   const baseFuel = (vehicle.baseFuelRate / 100) * distance;
 
@@ -33,13 +33,13 @@ export async function optimizeRoute(route, vehicleId = 'sedan', weatherOverride 
   // 4. Vehicle Factors (Aerodynamics and Weight)
   const avgSpeed = (distance / (route.duration / 60)) || 60;
   const dragFactor = 1 + (avgSpeed > 80 ? (avgSpeed - 80) * 0.01 * vehicle.dragCoefficient : 0);
-  
+
   const totalMultiplier = trafficMultiplier * weatherMultiplier * elevationMultiplier * dragFactor;
   const totalFuel = baseFuel * totalMultiplier;
-  
+
   const cost = totalFuel * vehicle.fuelPrice;
   const co2 = vehicle.fuelType === 'Electric'
-    ? totalFuel * 0.4 
+    ? totalFuel * 0.4
     : totalFuel * 2.31;
 
   let trafficLabel = 'light';

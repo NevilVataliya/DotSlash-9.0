@@ -185,8 +185,17 @@ export const ELEVATION_PROFILES = {
 };
 
 export function calculateFuelUsage(route, vehicle) {
+  if (route.fuelMetrics) {
+    return {
+      fuel: route.fuelMetrics.fuelUsed || 0,
+      cost: route.fuelMetrics.cost || 0,
+      co2: route.fuelMetrics.co2 || 0,
+      unit: route.fuelMetrics.fuelUnit || (vehicle.fuelType === 'Electric' ? 'kWh' : 'L'),
+    };
+  }
+
   const baseFuel = (vehicle.baseFuelRate / 100) * route.distance;
-  const totalFuel = baseFuel * route.fuelMultiplier;
+  const totalFuel = baseFuel * (route.fuelMultiplier || 1.0);
   const cost = totalFuel * vehicle.fuelPrice;
   const co2 = vehicle.fuelType === 'Electric'
     ? totalFuel * 0.4 // kg CO2 per kWh (grid average)
