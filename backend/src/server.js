@@ -25,11 +25,13 @@ app.use(cookieParser())
 import userRouter from './routes/user.js'
 import tripRouter from './routes/trip.js'
 import vehicleRouter from './routes/vehicle.js'
+import poolRouter from './routes/pool.js'
 // // route declaration
 
 app.use("/api/v1/users",userRouter)
 app.use("/api/v1/trips",tripRouter)
 app.use("/api/v1/vehicles",vehicleRouter)
+app.use("/api/v1/pools",poolRouter)
 
 //localhost:8000/api/v1/users/register or anything in the urserRouter 
 app.get('/',(req,res)=>{
