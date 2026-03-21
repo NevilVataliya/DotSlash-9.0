@@ -198,3 +198,51 @@ export function calculateFuelUsage(route, vehicle) {
     unit: vehicle.fuelType === 'Electric' ? 'kWh' : 'L',
   };
 }
+
+// Initial mock data for Ride Pool
+export const RIDE_POOL_RECORDS = [
+  {
+    id: 'r1',
+    owner: 'Arjun Sharma',
+    source: 'New Delhi',
+    destination: 'Jaipur',
+    date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0], // Tomorrow
+    time: '08:30',
+    seats: 3,
+    status: 'available',
+    vehicleName: 'Sedan (Petrol)'
+  },
+  {
+    id: 'r2',
+    owner: 'Priya Singh',
+    source: 'Gurugram',
+    destination: 'Alwar',
+    date: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString().split('T')[0], // Day after tomorrow
+    time: '10:00',
+    seats: 2,
+    status: 'available',
+    vehicleName: 'SUV (Diesel)'
+  },
+  {
+    id: 'r3',
+    owner: 'Rahul Verma',
+    source: 'Shahpura',
+    destination: 'Jaipur',
+    date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0],
+    time: '17:45',
+    seats: 4,
+    status: 'available',
+    vehicleName: 'Hatchback (Petrol)'
+  },
+  {
+    id: 'r4',
+    owner: 'Sonia Mehta',
+    source: 'New Delhi',
+    destination: 'Gurugram',
+    date: new Date().toISOString().split('T')[0], // Today
+    time: '09:15',
+    seats: 1,
+    status: 'available',
+    vehicleName: 'Electric (EV)'
+  }
+];
