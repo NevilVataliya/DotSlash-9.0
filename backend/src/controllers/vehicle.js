@@ -5,19 +5,25 @@ import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
 const addVehicle = asyncHandler(async (req, res) => {
-  const { type, fuelType, mileage, avgSpeed, fuelConsumptionRate } = req.body;
+  // Accept all schema fields from the request body but enforce required fields
+  const body = req.body || {};
 
-  if (!type || !fuelType) {
-    throw new ApiError(400, "Type and fuelType are required");
+  if (!body.type) {
+    throw new ApiError(400, "Type is required");
   }
 
-  const vehicle = await Vehicle.create({
-    type,
-    fuelType,
-    mileage,
-    avgSpeed,
-    fuelConsumptionRate
-  });
+  // Ensure userId comes from authenticated user
+  const payload = {
+    ...body,
+    userId: req.user?._id,
+  };
+
+  // Prevent clients from setting internal/immutable fields
+  delete payload._id;
+  delete payload.createdAt;
+  delete payload.updatedAt;
+
+  const vehicle = await Vehicle.create(payload);
 
   return res.status(201).json(
     new ApiResponse(201, vehicle, "Vehicle added successfully")
@@ -25,7 +31,8 @@ const addVehicle = asyncHandler(async (req, res) => {
 });
 
 const getVehicles = asyncHandler(async (req, res) => {
-  const vehicles = await Vehicle.find().sort({ createdAt: -1 });
+  // Return vehicles for the authenticated user only
+  const vehicles = await Vehicle.find({ userId: req.user?._id }).sort({ createdAt: -1 });
 
   return res.status(200).json(
     new ApiResponse(200, vehicles, "Vehicles fetched successfully")
@@ -33,13 +40,16 @@ const getVehicles = asyncHandler(async (req, res) => {
 });
 
 const getVehicleById = asyncHandler(async (req, res) => {
-  const vehicleId  = (req.params.id);
-  console.log(req.params.id)
-  console.log(vehicleId)
+  const vehicleId = req.params.id;
   const vehicle = await Vehicle.findById(vehicleId);
 
   if (!vehicle) {
     throw new ApiError(404, "Vehicle not found");
+  }
+
+  // Ensure owner access
+  if (String(vehicle.userId) !== String(req.user?._id)) {
+    throw new ApiError(403, "Forbidden");
   }
 
   return res.status(200).json(
@@ -48,8 +58,8 @@ const getVehicleById = asyncHandler(async (req, res) => {
 });
 
 const updateVehicle = asyncHandler(async (req, res) => {
-  const  vehicleId  = req.params.id;
-  const updates = req.body;
+  const vehicleId = req.params.id;
+  const updates = req.body || {};
 
   const vehicle = await Vehicle.findById(vehicleId);
 
@@ -57,6 +67,18 @@ const updateVehicle = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Vehicle not found");
   }
 
+  // Ensure owner access
+  if (String(vehicle.userId) !== String(req.user?._id)) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  // Prevent changing ownership or internal fields
+  delete updates.userId;
+  delete updates._id;
+  delete updates.createdAt;
+  delete updates.updatedAt;
+
+  // Simple merge: shallow assign for top-level and nested replacement allowed
   Object.keys(updates).forEach((key) => {
     vehicle[key] = updates[key];
   });
@@ -69,12 +91,17 @@ const updateVehicle = asyncHandler(async (req, res) => {
 });
 
 const deleteVehicle = asyncHandler(async (req, res) => {
-  const vehicleId  = req.params.id;
+  const vehicleId = req.params.id;
 
   const vehicle = await Vehicle.findById(vehicleId);
 
   if (!vehicle) {
     throw new ApiError(404, "Vehicle not found");
+  }
+
+  // Ensure owner access
+  if (String(vehicle.userId) !== String(req.user?._id)) {
+    throw new ApiError(403, "Forbidden");
   }
 
   await vehicle.deleteOne();
