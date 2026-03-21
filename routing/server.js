@@ -27,9 +27,9 @@ app.post('/api/route', async (req, res) => {
 
   try {
     const locations = [source, ...stops, destination];
-    
+
     console.log('--- Initiating Multi-Engine Routing ---');
-    
+
     // 1. Fetch from Valhalla (or Mock)
     console.log('Engine 1: Fetching Valhalla/Mock routes...');
     const valhallaResponse = await fetchRoutes(locations);
@@ -62,12 +62,12 @@ app.post('/api/route', async (req, res) => {
     const shortest = [...optimizedRoutes].sort((a, b) => a.distance - b.distance)[0];
 
     // Lowest Fuel Usage (Fuel Optimized)
-    const fuelOptimized = [...optimizedRoutes].sort((a, b) => 
+    const fuelOptimized = [...optimizedRoutes].sort((a, b) =>
       parseFloat(a.fuelMetrics.fuelUsed) - parseFloat(b.fuelMetrics.fuelUsed)
     )[0];
 
     console.log(`SUCCESS: Best routes selected. (Fastest Source: ${fastest.source})`);
-    
+
     res.json({
       fastest: { ...fastest, label: 'Fastest' },
       shortest: { ...shortest, label: 'Shortest' },

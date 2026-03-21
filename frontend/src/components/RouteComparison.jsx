@@ -1,7 +1,7 @@
 import { formatDistance, formatDuration, formatFuel, formatCost } from '../utils/mapHelpers';
 import { calculateFuelUsage } from '../data/demoData';
 
-export default function RouteComparison({ routes, selectedRoute, onSelectRoute, vehicle }) {
+export default function RouteComparison({ routes, selectedRoute, onSelectRoute, vehicle, onStartJourney, onStopJourney, isJourneyActive }) {
   if (!routes) return null;
 
   const routeList = Object.values(routes);
@@ -14,6 +14,8 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
   const minFuel = Math.min(...fuelValues.map(f => f.fuel));
   const maxFuel = Math.max(...fuelValues.map(f => f.fuel));
   const savingsPercent = maxFuel > 0 ? Math.round((1 - minFuel / maxFuel) * 100) : 0;
+
+  const activeRoute = selectedRoute ? routeList.find(r => r.id === selectedRoute) : null;
 
   return (
     <div className="panel" style={{ animationDelay: '0.1s' }}>
@@ -33,7 +35,7 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
               key={route.id}
               className={`route-card${selectedRoute === route.id ? ' selected' : ''}`}
               style={{ '--route-color': route.color }}
-              onClick={() => onSelectRoute(route.id)}
+              onClick={() => !isJourneyActive && onSelectRoute(route.id)}
             >
               {isBest && <div className="badge">🌿 Best</div>}
 
@@ -82,6 +84,24 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
       {savingsPercent > 0 && (
         <div className="fuel-savings">
           <span>🌿 Fuel-optimized route saves up to {savingsPercent}% fuel vs worst option</span>
+        </div>
+      )}
+
+      {/* Journey Action Button */}
+      {selectedRoute && (
+        <div className="journey-action">
+          {isJourneyActive ? (
+            <button className="stop-journey-btn" onClick={onStopJourney}>
+              <span className="journey-btn-icon">⏹</span>
+              Stop Journey
+            </button>
+          ) : (
+            <button className="start-journey-btn" onClick={onStartJourney}>
+              <span className="journey-btn-icon">▶</span>
+              Start Journey
+              {activeRoute && <span className="journey-route-label">{activeRoute.label}</span>}
+            </button>
+          )}
         </div>
       )}
     </div>

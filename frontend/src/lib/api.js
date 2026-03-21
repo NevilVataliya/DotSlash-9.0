@@ -44,10 +44,10 @@ export const checkUsername = async (username) => {
 };
 
 
-export const getCurrentUser = async( ) =>{
-  return request("/users/me",{
+export const getCurrentUser = async () => {
+  return request("/users/me", {
     method: "GET",
-    headers:{ "Content-Type":"application/json"},
+    headers: { "Content-Type": "application/json" },
     // body: JSON.stringify(data),
   });
 

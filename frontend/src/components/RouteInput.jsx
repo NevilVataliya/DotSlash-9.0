@@ -107,29 +107,29 @@ export default function RouteInput({
         credentials: 'omit' // use omit if jwt in header, include if using cookies. Assuming cookies are set via credentials: true in cors but checking both.
       });
       const result = await res.json();
-      
+
       if (result.statusCode === 200 || result.success) {
         const data = result.data;
         setExtractedData(data);
         alert(`Extracted: ${data.make} ${data.model} (${data.year || 'Unknown year'})`);
-        
+
         // Now save to DB
         // ensure type is set to match schema requirement ("car", "bike", "bus", "truck")
         let vType = data.type;
         if (!vType && vehicleId === 'motorcycle') vType = 'bike';
         else if (!vType) vType = 'car';
-        
+
         const saveRes = await fetch('http://localhost:5000/api/v1/vehicles/addvehicle', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
-            },
-            body: JSON.stringify({ ...data, type: vType })
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
+          },
+          body: JSON.stringify({ ...data, type: vType })
         });
         const saveResult = await saveRes.json();
-        if(saveResult.statusCode === 201 || saveResult.success) {
-            console.log("Saved vehicle to DB successfully");
+        if (saveResult.statusCode === 201 || saveResult.success) {
+          console.log("Saved vehicle to DB successfully");
         }
       } else {
         alert('Extraction failed: ' + (result.message || 'Unknown error'));
@@ -173,7 +173,7 @@ export default function RouteInput({
       <div className="route-input-group">
         <LocationInput
           value={source}
-          onChange={() => {}}
+          onChange={() => { }}
           onSelect={setSource}
           placeholder="Enter starting point"
           dotClass="source"
@@ -184,7 +184,7 @@ export default function RouteInput({
             <span className="input-dot stop"></span>
             <LocationInput
               value={stop}
-              onChange={() => {}}
+              onChange={() => { }}
               onSelect={(loc) => updateStop(i, loc)}
               placeholder={`Stop ${i + 1}`}
               dotClass="stop"
@@ -197,7 +197,7 @@ export default function RouteInput({
 
         <LocationInput
           value={destination}
-          onChange={() => {}}
+          onChange={() => { }}
           onSelect={setDestination}
           placeholder="Enter destination"
           dotClass="destination"
@@ -238,8 +238,8 @@ export default function RouteInput({
           <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Engine Audio (Optional)</label>
           <input type="file" accept="audio/*" onChange={(e) => setAudioFile(e.target.files[0])} style={{ display: 'block', marginTop: '4px', fontSize: '0.8rem' }} />
         </div>
-        <button 
-          onClick={handleExtractInfo} 
+        <button
+          onClick={handleExtractInfo}
           disabled={(!imageFile && !audioFile) || isExtracting}
           style={{
             marginTop: '8px',
