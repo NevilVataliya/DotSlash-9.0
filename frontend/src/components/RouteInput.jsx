@@ -85,6 +85,63 @@ export default function RouteInput({
   onPlanRoute,
   isLoading,
 }) {
+  const [imageFile, setImageFile] = useState(null);
+  const [audioFile, setAudioFile] = useState(null);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedData, setExtractedData] = useState(null);
+
+  const handleExtractInfo = async () => {
+    if (!imageFile && !audioFile) return;
+    setIsExtracting(true);
+    try {
+      const formData = new FormData();
+      if (imageFile) formData.append('image', imageFile);
+      if (audioFile) formData.append('audio', audioFile);
+
+      const res = await fetch('http://localhost:5000/api/v1/vehicles/extract-info', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
+        },
+        body: formData,
+        credentials: 'omit' // use omit if jwt in header, include if using cookies. Assuming cookies are set via credentials: true in cors but checking both.
+      });
+      const result = await res.json();
+      
+      if (result.statusCode === 200 || result.success) {
+        const data = result.data;
+        setExtractedData(data);
+        alert(`Extracted: ${data.make} ${data.model} (${data.year || 'Unknown year'})`);
+        
+        // Now save to DB
+        // ensure type is set to match schema requirement ("car", "bike", "bus", "truck")
+        let vType = data.type;
+        if (!vType && vehicleId === 'motorcycle') vType = 'bike';
+        else if (!vType) vType = 'car';
+        
+        const saveRes = await fetch('http://localhost:5000/api/v1/vehicles/addvehicle', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
+            },
+            body: JSON.stringify({ ...data, type: vType })
+        });
+        const saveResult = await saveRes.json();
+        if(saveResult.statusCode === 201 || saveResult.success) {
+            console.log("Saved vehicle to DB successfully");
+        }
+      } else {
+        alert('Extraction failed: ' + (result.message || 'Unknown error'));
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Error during extraction');
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   function addStop() {
     setStops([...stops, null]);
   }
@@ -166,6 +223,43 @@ export default function RouteInput({
             <span className="v-name">{v.name}</span>
           </div>
         ))}
+      </div>
+
+      {/* AI Extraction Section */}
+      <div className="section-header" style={{ marginTop: 'var(--sp-md)' }}>
+        <h3><span className="section-icon">✨</span> AI Vehicle Info</h3>
+      </div>
+      <div className="ai-extraction-section" style={{ padding: 'var(--sp-md)', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-sm)', border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div>
+          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Vehicle Image</label>
+          <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} style={{ display: 'block', marginTop: '4px', fontSize: '0.8rem' }} />
+        </div>
+        <div>
+          <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Engine Audio (Optional)</label>
+          <input type="file" accept="audio/*" onChange={(e) => setAudioFile(e.target.files[0])} style={{ display: 'block', marginTop: '4px', fontSize: '0.8rem' }} />
+        </div>
+        <button 
+          onClick={handleExtractInfo} 
+          disabled={(!imageFile && !audioFile) || isExtracting}
+          style={{
+            marginTop: '8px',
+            padding: '8px 12px',
+            backgroundColor: isExtracting ? 'rgba(255,255,255,0.1)' : 'var(--accent)',
+            color: 'white',
+            border: 'none',
+            borderRadius: 'var(--radius-sm)',
+            cursor: (!imageFile && !audioFile) || isExtracting ? 'not-allowed' : 'pointer',
+            fontWeight: '500'
+          }}
+        >
+          {isExtracting ? '⏳ Analyzing media...' : 'Extract Info & Save'}
+        </button>
+        {extractedData && (
+          <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'rgba(0, 230, 118, 0.1)', color: '#00E676', borderRadius: '4px', fontSize: '0.85rem' }}>
+            <strong>Extracted:</strong> {extractedData.make} {extractedData.model} ({extractedData.year})<br />
+            <strong>Fuel Type:</strong> {extractedData.fuelType}
+          </div>
+        )}
       </div>
 
       {/* Plan Route Button */}
