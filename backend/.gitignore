@@ -1,0 +1,13 @@
+node_modules/
+.env
+.next/
+dist/
+build/
+*.log
+*.tsbuildinfo
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+uploads/
+temp/
