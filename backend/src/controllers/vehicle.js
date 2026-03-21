@@ -1,4 +1,5 @@
 import { Vehicle } from "../models/Vehicle.js";
+import { GoogleGenAI } from "@google/genai";
 
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiError } from "../../utils/ApiError.js";
@@ -111,4 +112,83 @@ const deleteVehicle = asyncHandler(async (req, res) => {
   );
 });
 
-export {addVehicle,updateVehicle,getVehicleById,getVehicles,deleteVehicle}
+const extractVehicleInfo = asyncHandler(async (req, res) => {
+  const files = req.files || {};
+  
+  if (!files.image && !files.audio) {
+    throw new ApiError(400, "Please upload an image or audio file for extraction.");
+  }
+  
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  
+  const parts = [];
+  
+  if (files.image && files.image[0]) {
+    parts.push({
+      inlineData: {
+        data: files.image[0].buffer.toString("base64"),
+        mimeType: files.image[0].mimetype,
+      }
+    });
+  }
+  
+  if (files.audio && files.audio[0]) {
+    parts.push({
+      inlineData: {
+        data: files.audio[0].buffer.toString("base64"),
+        mimeType: files.audio[0].mimetype,
+      }
+    });
+  }
+  
+  parts.push({
+    text: `You are an expert vehicle identification AI. Return a JSON object containing vehicle extraction data from the provided image and/or audio. 
+Match the following schema closely:
+{
+  "type": "car|bike|bus|truck",
+  "make": "string",
+  "model": "string",
+  "year": "number",
+  "registrationNumber": "string",
+  "fuelType": "petrol|diesel|electric|gas|hybrid",
+  "mileage": "number",
+  "engine": {
+    "displacementCc": "number",
+    "cylinders": "number",
+    "type": "string",
+    "horsepowerBhpApprox": "number",
+    "transmission": "string"
+  },
+  "dimensions": {
+    "fuelTankCapacityL": "number"
+  },
+  "parsedAudioNote": {
+    "ageYears": "number",
+    "notes": "string"
+  }
+}
+If a value is not identifiable, omit it. Do not guess unless highly confident. Ensure the response is valid JSON.`
+  });
+  
+  try {
+     const response = await ai.models.generateContent({
+       model: 'gemini-2.5-flash',
+       contents: parts,
+       config: {
+         responseMimeType: "application/json",
+       }
+     });
+     
+     const responseText = typeof response.text === 'function' ? response.text() : response.text;
+     const extractedData = JSON.parse(responseText || "{}");
+     
+     return res.status(200).json(
+       new ApiResponse(200, extractedData, "Vehicle information extracted successfully")
+     );
+  } catch(error) {
+     console.error("Gemini Extraction Error:", error);
+     throw new ApiError(500, "Failed to extract vehicle info with Gemini");
+  }
+});
+
+export {addVehicle,updateVehicle,getVehicleById,getVehicles,deleteVehicle,extractVehicleInfo}

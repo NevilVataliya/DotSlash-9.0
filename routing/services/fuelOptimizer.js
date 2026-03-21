@@ -42,8 +42,28 @@ export async function optimizeRoute(route, vehicleId = 'sedan', weatherOverride 
     ? totalFuel * 0.4 
     : totalFuel * 2.31;
 
+  let trafficLabel = 'light';
+  if (trafficMultiplier >= 1.08) trafficLabel = 'moderate';
+  if (trafficMultiplier >= 1.25) trafficLabel = 'heavy';
+
+  let weatherLabel = 'clear';
+  const cond = (weatherData.condition || '').toLowerCase();
+  if (cond.includes('cloud')) weatherLabel = 'partly_cloudy';
+  else if (cond.includes('rain') || cond.includes('drizzle') || cond.includes('storm') || cond.includes('snow')) weatherLabel = 'rainy';
+  else if (cond.includes('wind')) weatherLabel = 'windy';
+
+  const generatedSegments = route.segments || [{
+    from: 'Origin',
+    to: 'Destination',
+    dist: Math.round(distance),
+    traffic: trafficLabel,
+    weather: weatherLabel,
+    elevation: Math.round(elevationGain)
+  }];
+
   return {
     ...route,
+    segments: generatedSegments,
     fuelMetrics: {
       fuelUsed: totalFuel.toFixed(2),
       fuelUnit: vehicle.fuelType === 'Electric' ? 'kWh' : 'L',
