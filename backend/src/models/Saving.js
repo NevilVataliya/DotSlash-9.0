@@ -19,4 +19,4 @@ const savingsSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-export default mongoose.model("Savings", savingsSchema);
+export const Savings =  mongoose.model("Savings", savingsSchema);

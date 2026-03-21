@@ -2,19 +2,19 @@
 import mongoose from "mongoose";
 
 const vehicleSchema = new mongoose.Schema({
-  userId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User"
-  },
 
+  userId: {
+  type: mongoose.Schema.Types.ObjectId,
+  ref: "User"
+},
   type: {
     type: String,
-    // enum: ["car", "bike", "bus"]
+    enum: ["car", "bike", "bus","truck"]
   },
 
   fuelType: {
     type: String,
-    // enum: ["petrol", "diesel", "electric"]
+    enum: ["petrol", "diesel", "electric","gas"]
   },
 
   mileage: Number, // km per liter (or Wh/km for EV)
@@ -25,4 +25,4 @@ const vehicleSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-export default mongoose.model("Vehicle", vehicleSchema);
+export const Vehicle =  mongoose.model("Vehicle", vehicleSchema);

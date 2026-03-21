@@ -22,9 +22,9 @@ const tripSchema = new mongoose.Schema({
     lat: Number,
     lng: Number
   },
-
+  status: Boolean,
   selectedRoute: Number, // index of chosen route
 
 }, { timestamps: true });
 
-export default mongoose.model("Trip", tripSchema);
+export const Trip =  mongoose.model("Trip", tripSchema);
