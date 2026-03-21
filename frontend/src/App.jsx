@@ -1,9 +1,18 @@
 import { useState, useCallback } from 'react';
+import axios from 'axios';
 import MapView from './components/MapView';
 import RouteInput from './components/RouteInput';
 import RouteComparison from './components/RouteComparison';
 import DataDashboard from './components/DataDashboard';
-import { VEHICLE_PROFILES, DEMO_ROUTES, PREDEFINED_LOCATIONS } from './data/demoData';
+import { VEHICLE_PROFILES, PREDEFINED_LOCATIONS } from './data/demoData';
+
+const BACKEND_URL = 'http://localhost:3001/api/route';
+
+const ROUTE_CONFIG = {
+  fuelOptimized: { id: 'fuel-optimized', label: 'Fuel Optimized', color: '#00E676', desc: 'Optimized for minimal fuel consumption & CO2 emissions' },
+  fastest: { id: 'fastest', label: 'Fastest', color: '#FF5252', desc: 'Express route prioritized for minimum travel time' },
+  shortest: { id: 'shortest', label: 'Shortest Distance', color: '#448AFF', desc: 'The most direct path with minimum total distance' }
+};
 
 export default function App() {
   // Route input state
@@ -20,26 +29,58 @@ export default function App() {
 
   const vehicle = VEHICLE_PROFILES.find(v => v.id === vehicleId) || VEHICLE_PROFILES[0];
 
-  const handlePlanRoute = useCallback(() => {
+  const handlePlanRoute = useCallback(async () => {
+    // Basic validation
+    if (!source || !destination) {
+      alert('Please select both a source and a destination.');
+      return;
+    }
+
     setIsLoading(true);
     setRoutes(null);
     setSelectedRoute(null);
 
-    // Simulate API delay
-    setTimeout(() => {
-      // Auto-set source/destination for demo if using predefined locations
-      if (!source) {
-        setSource(PREDEFINED_LOCATIONS[0]); // Delhi
-      }
-      if (!destination) {
-        setDestination(PREDEFINED_LOCATIONS[6]); // Jaipur
-      }
+    try {
+      const response = await axios.post(BACKEND_URL, {
+        source,
+        destination,
+        stops,
+        vehicleId,
+        weather: 'clear' // Can be dynamic later
+      });
 
-      setRoutes(DEMO_ROUTES);
+      const backendData = response.data;
+      const transformedRoutes = {};
+
+      // Transform backend keys to frontend format
+      Object.keys(backendData).forEach(key => {
+        const route = backendData[key];
+        const config = ROUTE_CONFIG[key];
+        
+        transformedRoutes[config.id] = {
+          ...route,
+          id: config.id,
+          label: config.label,
+          description: config.desc,
+          color: config.color,
+          // Extract specific metrics for UI
+          elevationGain: route.fuelMetrics.elevationGain,
+          fuelUsed: route.fuelMetrics.fuelUsed,
+          cost: route.fuelMetrics.cost,
+          co2: route.fuelMetrics.co2,
+          unit: route.fuelMetrics.fuelUnit
+        };
+      });
+
+      setRoutes(transformedRoutes);
       setSelectedRoute('fuel-optimized');
+    } catch (error) {
+      console.error('Error planning route:', error);
+      alert('Failed to connect to the routing service. Is the backend running on port 3001?');
+    } finally {
       setIsLoading(false);
-    }, 1500);
-  }, [source, destination]);
+    }
+  }, [source, destination, stops, vehicleId]);
 
   const handleSelectRoute = useCallback((routeId) => {
     setSelectedRoute(routeId);

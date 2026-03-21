@@ -26,7 +26,6 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
 
       <div className="route-comparison">
         {routeList.map((route) => {
-          const usage = calculateFuelUsage(route, vehicle);
           const isBest = route.id === 'fuel-optimized';
 
           return (
@@ -57,18 +56,18 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
                 <div className="stat">
                   <span className="stat-label">Fuel</span>
                   <span className={`stat-value${isBest ? ' highlight' : ''}`}>
-                    {formatFuel(usage.fuel, usage.unit)}
+                    {formatFuel(route.fuelUsed, route.unit)}
                   </span>
                 </div>
                 <div className="stat">
                   <span className="stat-label">Cost</span>
                   <span className={`stat-value${isBest ? ' highlight' : ''}`}>
-                    {formatCost(usage.cost)}
+                    {formatCost(route.cost)}
                   </span>
                 </div>
                 <div className="stat">
                   <span className="stat-label">CO₂</span>
-                  <span className="stat-value">{usage.co2} kg</span>
+                  <span className="stat-value">{route.co2} kg</span>
                 </div>
                 <div className="stat">
                   <span className="stat-label">Elevation</span>
