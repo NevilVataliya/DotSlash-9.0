@@ -161,6 +161,7 @@ export default function Dashboard() {
             route={activeRoute}
             vehicle={vehicle}
             show={showDashboard && !!routes}
+            source={source}
           />
 
           {/* Dashboard toggle */}
