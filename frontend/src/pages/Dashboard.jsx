@@ -60,7 +60,7 @@ export default function Dashboard() {
       Object.keys(backendData).forEach(key => {
         const route = backendData[key];
         const config = ROUTE_CONFIG[key];
-        
+
         transformedRoutes[config.id] = {
           ...route,
           id: config.id,
@@ -108,13 +108,13 @@ export default function Dashboard() {
       <div className="sidebar">
         {/* Navigation Tabs */}
         <div className="nav-tabs">
-          <button 
+          <button
             className={`nav-tab ${activeTab === 'route' ? 'active' : ''}`}
             onClick={() => setActiveTab('route')}
           >
             Smart Route
           </button>
-          <button 
+          <button
             className={`nav-tab ${activeTab === 'pool' ? 'active' : ''}`}
             onClick={() => setActiveTab('pool')}
           >

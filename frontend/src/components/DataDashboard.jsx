@@ -66,11 +66,12 @@ export default function DataDashboard({ route, vehicle, show }) {
   });
 
   // Fuel breakdown per segment (approximate)
-  const basePer100 = vehicle.baseFuelRate;
+  const basePer100 = vehicle.baseFuelRate || 7.5;
   const segmentFuel = segments.map(seg => {
     const weatherImpact = WEATHER_DATA[seg.weather]?.fuelImpact || 1;
     const trafficImpact = TRAFFIC_LEVELS[seg.traffic]?.fuelImpact || 1;
-    const fuel = (basePer100 / 100) * seg.dist * weatherImpact * trafficImpact * route.fuelMultiplier;
+    const multiplier = route.fuelMultiplier || 1.0;
+    const fuel = (basePer100 / 100) * seg.dist * weatherImpact * trafficImpact * multiplier;
     return { ...seg, fuel: fuel.toFixed(1) };
   });
 
