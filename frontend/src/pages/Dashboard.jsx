@@ -74,37 +74,126 @@ export default function Dashboard() {
   useEffect(() => { destinationRef.current = destination; }, [destination]);
   useEffect(() => { stopsRef.current = stops; }, [stops]);
 
-  // Bottom Sheet state
-  const [sheetHeight, setSheetHeight] = useState(55);
+  // Bottom Sheet state with improved snap points
+  const SNAP_POINTS = {
+    FULL: 85,      // Full expanded view
+    HALF: 50,      // Half screen - default comfortable view
+    PEEK: 25,      // Peek mode - shows tabs and minimal content
+    MINI: 12       // Minimized - just the handle visible
+  };
+  
+  const [sheetHeight, setSheetHeight] = useState(SNAP_POINTS.HALF);
+  const [isDraggingSheet, setIsDraggingSheet] = useState(false);
   const isDragging = useRef(false);
   const startY = useRef(0);
-  const startHeight = useRef(55);
+  const startHeight = useRef(SNAP_POINTS.HALF);
+  const lastY = useRef(0);
+  const lastTime = useRef(0);
+  const velocity = useRef(0);
 
   const handlePointerDown = (e) => {
     if (e.target.closest('.sidebar-handle') || e.target.closest('.nav-tabs')) {
       isDragging.current = true;
+      setIsDraggingSheet(true);
       startY.current = e.clientY;
+      lastY.current = e.clientY;
+      lastTime.current = Date.now();
       startHeight.current = sheetHeight;
+      velocity.current = 0;
       if (e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
     }
   };
+  
   const handlePointerMove = (e) => {
     if (!isDragging.current) return;
-    const deltaY = e.clientY - startY.current;
+    
+    const currentY = e.clientY;
+    const currentTime = Date.now();
+    const deltaTime = currentTime - lastTime.current;
+    
+    // Calculate velocity (pixels per millisecond)
+    if (deltaTime > 0) {
+      velocity.current = (currentY - lastY.current) / deltaTime;
+    }
+    
+    lastY.current = currentY;
+    lastTime.current = currentTime;
+    
+    const deltaY = currentY - startY.current;
     const vhDelta = (deltaY / window.innerHeight) * 100;
     let newHeight = startHeight.current - vhDelta;
-    if (newHeight > 90) newHeight = 90;
-    if (newHeight < 10) newHeight = 10;
+    
+    // Clamp with rubber-band effect at edges
+    if (newHeight > SNAP_POINTS.FULL) {
+      const overflow = newHeight - SNAP_POINTS.FULL;
+      newHeight = SNAP_POINTS.FULL + overflow * 0.2; // Rubber-band resistance
+    }
+    if (newHeight < SNAP_POINTS.MINI) {
+      const underflow = SNAP_POINTS.MINI - newHeight;
+      newHeight = SNAP_POINTS.MINI - underflow * 0.2;
+    }
+    
     setSheetHeight(newHeight);
   };
+  
   const handlePointerUp = (e) => {
     if (!isDragging.current) return;
     isDragging.current = false;
+    setIsDraggingSheet(false);
     if (e.target.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
-    if (sheetHeight > 75) setSheetHeight(90);
-    else if (sheetHeight > 35) setSheetHeight(55);
-    else if (sheetHeight > 15) setSheetHeight(20);
-    else setSheetHeight(10);
+    
+    // Velocity threshold for flick gestures (pixels per ms)
+    const VELOCITY_THRESHOLD = 0.5;
+    const currentVelocity = velocity.current;
+    
+    let targetSnap;
+    
+    // Fast flick detection - let velocity override position
+    if (Math.abs(currentVelocity) > VELOCITY_THRESHOLD) {
+      if (currentVelocity > 0) {
+        // Swiping down (closing)
+        if (sheetHeight > SNAP_POINTS.HALF) targetSnap = SNAP_POINTS.HALF;
+        else if (sheetHeight > SNAP_POINTS.PEEK) targetSnap = SNAP_POINTS.PEEK;
+        else targetSnap = SNAP_POINTS.MINI;
+      } else {
+        // Swiping up (opening)
+        if (sheetHeight < SNAP_POINTS.PEEK) targetSnap = SNAP_POINTS.PEEK;
+        else if (sheetHeight < SNAP_POINTS.HALF) targetSnap = SNAP_POINTS.HALF;
+        else targetSnap = SNAP_POINTS.FULL;
+      }
+    } else {
+      // Slow drag - snap to nearest point
+      const snapPoints = [SNAP_POINTS.MINI, SNAP_POINTS.PEEK, SNAP_POINTS.HALF, SNAP_POINTS.FULL];
+      targetSnap = snapPoints.reduce((prev, curr) => 
+        Math.abs(curr - sheetHeight) < Math.abs(prev - sheetHeight) ? curr : prev
+      );
+    }
+    
+    setSheetHeight(targetSnap);
+  };
+  
+  // Quick toggle function for minimize button
+  const toggleSheet = () => {
+    if (sheetHeight <= SNAP_POINTS.PEEK) {
+      setSheetHeight(SNAP_POINTS.HALF);
+    } else {
+      setSheetHeight(SNAP_POINTS.PEEK);
+    }
+  };
+  
+  // Double-tap handle to fully expand/collapse
+  const lastTapTime = useRef(0);
+  const handleHandleClick = () => {
+    const now = Date.now();
+    if (now - lastTapTime.current < 300) {
+      // Double tap detected
+      if (sheetHeight >= SNAP_POINTS.FULL - 5) {
+        setSheetHeight(SNAP_POINTS.PEEK);
+      } else {
+        setSheetHeight(SNAP_POINTS.FULL);
+      }
+    }
+    lastTapTime.current = now;
   };
 
   const vehicle = VEHICLE_PROFILES.find(v => v.id === vehicleId) || VEHICLE_PROFILES[0];
@@ -392,15 +481,33 @@ export default function Dashboard() {
         userPosition={userPosition}
       />
 
-      {/* Left sidebar */}
+      {/* Left sidebar / Bottom sheet on mobile */}
       <div
-        className={`sidebar ${isDragging.current ? 'is-dragging' : ''}`}
+        className={`sidebar ${isDraggingSheet ? 'is-dragging' : ''}`}
+        style={{ '--sheet-vh': `${sheetHeight}vh` }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        <div className="sidebar-handle"></div>
+        {/* Drag handle with visual feedback */}
+        <div 
+          className="sidebar-handle" 
+          onClick={handleHandleClick}
+          aria-label="Drag to resize panel"
+        >
+          <span className="handle-indicator"></span>
+        </div>
+        
+        {/* Snap point indicators (visible during drag) */}
+        {isDraggingSheet && (
+          <div className="snap-indicators">
+            <div className={`snap-line ${sheetHeight >= SNAP_POINTS.FULL - 3 ? 'active' : ''}`} style={{ bottom: `${SNAP_POINTS.FULL}%` }} />
+            <div className={`snap-line ${Math.abs(sheetHeight - SNAP_POINTS.HALF) < 3 ? 'active' : ''}`} style={{ bottom: `${SNAP_POINTS.HALF}%` }} />
+            <div className={`snap-line ${Math.abs(sheetHeight - SNAP_POINTS.PEEK) < 3 ? 'active' : ''}`} style={{ bottom: `${SNAP_POINTS.PEEK}%` }} />
+          </div>
+        )}
+        
         <div className="nav-tabs" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div style={{ display: 'flex', flex: 1, gap: '4px' }}>
             <button className={`nav-tab ${activeTab === 'route' ? 'active' : ''}`} onClick={() => setActiveTab('route')}>
@@ -410,8 +517,8 @@ export default function Dashboard() {
               Ride Pool
             </button>
           </div>
-          <button className="minimize-btn" onClick={() => setSheetHeight(sheetHeight <= 15 ? 55 : 10)} title="Toggle Panel">
-            {sheetHeight <= 15 ? '▲' : '▼'}
+          <button className="minimize-btn" onClick={toggleSheet} title="Toggle Panel">
+            {sheetHeight <= SNAP_POINTS.PEEK ? '▲' : '▼'}
           </button>
         </div>
 
