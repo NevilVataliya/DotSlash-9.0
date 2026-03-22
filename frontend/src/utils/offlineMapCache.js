@@ -31,33 +31,7 @@ function addTile(tiles, zoom, x, y, radius) {
   }
 }
 
-export async function prefetchTilesForRoutes(routes, options = {}) {
-  if (!routes || !Object.keys(routes).length) {
-    return { plannedTiles: 0, cachedTiles: 0, failedTiles: 0 };
-  }
-
-  if (!('caches' in window) || !navigator.onLine) {
-    return { plannedTiles: 0, cachedTiles: 0, failedTiles: 0 };
-  }
-
-  const zooms = options.zooms || [10, 11, 12];
-  const radius = options.radius ?? 1;
-  const maxTiles = options.maxTiles ?? 650;
-
-  const tileSet = new Set();
-
-  Object.values(routes).forEach((route) => {
-    const coordinates = route.coordinates || [];
-
-    coordinates.forEach(([lat, lng]) => {
-      zooms.forEach((zoom) => {
-        const x = lonToTileX(lng, zoom);
-        const y = latToTileY(lat, zoom);
-        addTile(tileSet, zoom, x, y, radius);
-      });
-    });
-  });
-
+async function cacheTilesFromSet(tileSet, maxTiles) {
   const plannedTiles = Array.from(tileSet).slice(0, maxTiles);
   const cache = await caches.open(MAP_TILE_CACHE);
 
@@ -93,4 +67,67 @@ export async function prefetchTilesForRoutes(routes, options = {}) {
     cachedTiles,
     failedTiles,
   };
+}
+
+export async function prefetchTilesForRoutes(routes, options = {}) {
+  if (!routes || !Object.keys(routes).length) {
+    return { plannedTiles: 0, cachedTiles: 0, failedTiles: 0 };
+  }
+
+  if (!('caches' in window) || !navigator.onLine) {
+    return { plannedTiles: 0, cachedTiles: 0, failedTiles: 0 };
+  }
+
+  const zooms = options.zooms || [10, 11, 12];
+  const radius = options.radius ?? 1;
+  const maxTiles = options.maxTiles ?? 650;
+
+  const tileSet = new Set();
+
+  Object.values(routes).forEach((route) => {
+    const coordinates = route.coordinates || [];
+
+    coordinates.forEach(([lat, lng]) => {
+      zooms.forEach((zoom) => {
+        const x = lonToTileX(lng, zoom);
+        const y = latToTileY(lat, zoom);
+        addTile(tileSet, zoom, x, y, radius);
+      });
+    });
+  });
+
+  return cacheTilesFromSet(tileSet, maxTiles);
+}
+
+export async function prefetchTilesForViewport(map, options = {}) {
+  if (!map || !('caches' in window) || !navigator.onLine) {
+    return { plannedTiles: 0, cachedTiles: 0, failedTiles: 0 };
+  }
+
+  const currentZoom = map.getZoom();
+  const zooms = options.zooms || [Math.max(1, currentZoom - 1), currentZoom, currentZoom + 1];
+  const maxTiles = options.maxTiles ?? 320;
+
+  const bounds = map.getBounds();
+  const north = bounds.getNorth();
+  const south = bounds.getSouth();
+  const east = bounds.getEast();
+  const west = bounds.getWest();
+
+  const tileSet = new Set();
+
+  zooms.forEach((zoom) => {
+    const xMin = lonToTileX(west, zoom);
+    const xMax = lonToTileX(east, zoom);
+    const yMin = latToTileY(north, zoom);
+    const yMax = latToTileY(south, zoom);
+
+    for (let x = Math.min(xMin, xMax); x <= Math.max(xMin, xMax); x += 1) {
+      for (let y = Math.min(yMin, yMax); y <= Math.max(yMin, yMax); y += 1) {
+        tileSet.add(`${zoom}:${x}:${y}`);
+      }
+    }
+  });
+
+  return cacheTilesFromSet(tileSet, maxTiles);
 }

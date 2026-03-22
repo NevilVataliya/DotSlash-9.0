@@ -3,13 +3,15 @@ const APP_SHELL_CACHE = `${SW_VERSION}-app-shell`;
 const STATIC_CACHE = `${SW_VERSION}-static`;
 const TILE_CACHE = 'eco-map-tiles-v1';
 const API_CACHE = `${SW_VERSION}-api`;
+const OFFLINE_TILE_PATH = '/offline-tile.svg';
 
 const APP_SHELL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/icons/icon-192.svg',
-  '/icons/icon-512.svg'
+  '/icons/icon-512.svg',
+  OFFLINE_TILE_PATH
 ];
 
 self.addEventListener('install', (event) => {
@@ -100,7 +102,16 @@ async function cacheFirst(request, cacheName, maxEntries) {
     }
     return response;
   } catch {
-    return cached || Response.error();
+    if (cached) return cached;
+
+    const requestUrl = new URL(request.url);
+    if (isTileRequest(requestUrl)) {
+      const appShell = await caches.open(APP_SHELL_CACHE);
+      const fallbackTile = await appShell.match(OFFLINE_TILE_PATH);
+      if (fallbackTile) return fallbackTile;
+    }
+
+    return Response.error();
   }
 }
 

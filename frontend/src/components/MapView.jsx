@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createIcon, createStopIcon } from '../utils/mapHelpers';
+import { prefetchTilesForViewport } from '../utils/offlineMapCache';
 
 const MAP_TILE_URL = import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 const MAP_TILE_ATTRIBUTION = import.meta.env.VITE_MAP_TILE_ATTRIBUTION || '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>';
+const OFFLINE_TILE_URL = '/offline-tile.svg';
 
 function FitBounds({ route }) {
   const map = useMap();
@@ -29,6 +31,40 @@ function RecenterMap({ position }) {
       prevPos.current = position;
     }
   }, [position, map]);
+  return null;
+}
+
+function TileWarmupOnViewChange() {
+  const warmupTimer = useRef(null);
+
+  const scheduleWarmup = (map) => {
+    if (!navigator.onLine) return;
+
+    if (warmupTimer.current) {
+      clearTimeout(warmupTimer.current);
+    }
+
+    warmupTimer.current = setTimeout(() => {
+      prefetchTilesForViewport(map, { maxTiles: 420 }).catch(() => {});
+    }, 250);
+  };
+
+  const map = useMapEvents({
+    moveend() {
+      scheduleWarmup(map);
+    },
+    zoomend() {
+      scheduleWarmup(map);
+    },
+  });
+
+  useEffect(() => {
+    scheduleWarmup(map);
+    return () => {
+      if (warmupTimer.current) clearTimeout(warmupTimer.current);
+    };
+  }, [map]);
+
   return null;
 }
 
@@ -80,7 +116,13 @@ export default function MapView({ routes, selectedRoute, source, destination, st
           url={MAP_TILE_URL}
           attribution={MAP_TILE_ATTRIBUTION}
           maxZoom={19}
+          errorTileUrl={OFFLINE_TILE_URL}
+          keepBuffer={6}
+          updateWhenZooming={false}
+          updateWhenIdle={true}
         />
+
+        <TileWarmupOnViewChange />
 
         {/* Non-selected routes as faded */}
         {allRoutes.map((route) => {
