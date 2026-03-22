@@ -1,4 +1,6 @@
-const API_URL = (import.meta.env.VITE_API_BASE_URL || "/api/v1").replace(/\/$/, "");
+// Use Vite env (import.meta.env) in the browser. Fall back to a relative path so
+// dev server proxy can forward to the backend and cookies work same-origin.
+const API_URL = import.meta.env.VITE_API_URL || "/api/v1";
 
 
 const request = async (endpoint, options) => {
@@ -59,3 +61,9 @@ export const getCurrentUser = async () => {
   // return data;
 };
 
+export const getUserCredits = async () => {
+  return request("/credits", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+};

@@ -59,12 +59,12 @@ const registerUser = asyncHandler(async(req ,res)=>{
 const loginUser = asyncHandler(async(req,res)=>{
     const {email,username,password} = req.body
     console.log(req.body)
-    if(!username || !email){
+    if( !email){
         throw new ApiError(400,"username or email is required")
     }
 
     const user = await User.findOne({
-        $or: [{username},{email}]
+        $or: [{email}]
     })
     if(!user){
         throw new ApiError(404,"User not exist")
@@ -81,9 +81,11 @@ const loginUser = asyncHandler(async(req,res)=>{
     const loggedUser = await User.findById(user._id).
     select("-password -refreshToken")
 
+    // For local dev we expose cookies to the client (not httpOnly) and don't require secure.
+    // NOTE: This reduces security and should NOT be used in production.
     const options = {
-        httpOnly:true,
-        secure:true
+        httpOnly: false,
+        secure: false,
     }
     return res.status(200)
     .cookie("accessToken",accessToken,options)
@@ -112,13 +114,14 @@ const logoutUser = asyncHandler(async(req,res)=>{
         }
     )
 
+    // Match the same cookie options used at login so cookies are cleared correctly.
     const options = {
-        httpOnly:true,
-        secure:true
+        httpOnly: false,
+        secure: false,
     }
 
-    return res.status(200).clearCookie("accessToken",options)
-    .clearCookie("refreshToken",options)
+    return res.status(200).clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
     .json(new ApiResponse(200,{},"User logged out"))
 
 })

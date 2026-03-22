@@ -66,6 +66,15 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 5000;
+
+app.use((err, req, res, next) => {
+    const statusCode = err.statusCode || 500;
+    res.status(statusCode).json({
+        success: err.success || false,
+        message: err.message || "Internal Server Error",
+        errors: err.errors || [],
+    });
+});
 const host = process.env.HOST || '0.0.0.0';
 const publicUrl = process.env.SERVER_PUBLIC_URL || `http://${host}:${port}`;
 
