@@ -5,9 +5,59 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 
+const INVALID_PLACEHOLDER_VALUES = new Set([
+  "n/a",
+  "na",
+  "not available",
+  "unknown",
+  "undefined",
+  "null",
+  "none",
+  "-",
+]);
+
+const isMeaningfulValue = (value) => {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized !== "" && !INVALID_PLACEHOLDER_VALUES.has(normalized);
+  }
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "boolean") return true;
+  return true;
+};
+
+const sanitizeExtractedValue = (value) => {
+  if (Array.isArray(value)) {
+    const cleanedArray = value
+      .map((item) => sanitizeExtractedValue(item))
+      .filter((item) => item !== undefined);
+    return cleanedArray.length ? cleanedArray : undefined;
+  }
+
+  if (value && typeof value === "object") {
+    const cleanedObject = Object.entries(value).reduce((acc, [key, nestedValue]) => {
+      const cleanedNestedValue = sanitizeExtractedValue(nestedValue);
+      if (cleanedNestedValue !== undefined) {
+        acc[key] = cleanedNestedValue;
+      }
+      return acc;
+    }, {});
+
+    return Object.keys(cleanedObject).length ? cleanedObject : undefined;
+  }
+
+  if (!isMeaningfulValue(value)) return undefined;
+  return value;
+};
+
 const addVehicle = asyncHandler(async (req, res) => {
   // Accept all schema fields from the request body but enforce required fields
   const body = req.body || {};
+
+  if (!req.user?._id) {
+    throw new ApiError(401, "Unauthorized request");
+  }
 
   if (!body.type) {
     throw new ApiError(400, "Type is required");
@@ -142,8 +192,10 @@ const extractVehicleInfo = asyncHandler(async (req, res) => {
   }
   
   parts.push({
-    text: `You are an expert vehicle identification AI. Return a JSON object containing vehicle extraction data from the provided image and/or audio. 
-Match the following schema closely:
+    text: `You are an expert multimodal vehicle-information extraction system.
+Analyze the provided image and/or audio deeply (visual cues, OCR text, badges/logos, body style, plate region, engine sound characteristics).
+
+Return ONLY strict JSON (no markdown, no comments) using this schema:
 {
   "type": "car|bike|bus|truck",
   "make": "string",
@@ -167,7 +219,15 @@ Match the following schema closely:
     "notes": "string"
   }
 }
-If a value is not identifiable, omit it. Do not guess unless highly confident. Ensure the response is valid JSON.`
+
+Rules:
+1) Try to populate every field, but include a field only when reasonably supported by evidence.
+2) Never output placeholders like "N/A", "unknown", "null", "-", or empty strings.
+3) If not identifiable with confidence, omit the field entirely.
+4) Keep values normalized (fuelType lowercase, type in {car,bike,bus,truck}, year numeric).
+5) parsedAudioNote.notes should summarize useful sound evidence only when audio exists.
+
+Return valid JSON object only.`
   });
   
   try {
@@ -180,10 +240,11 @@ If a value is not identifiable, omit it. Do not guess unless highly confident. E
      });
      
      const responseText = typeof response.text === 'function' ? response.text() : response.text;
-     const extractedData = JSON.parse(responseText || "{}");
+     const parsedData = JSON.parse(responseText || "{}");
+     const sanitizedData = sanitizeExtractedValue(parsedData) || {};
      
      return res.status(200).json(
-       new ApiResponse(200, extractedData, "Vehicle information extracted successfully")
+       new ApiResponse(200, sanitizedData, "Vehicle information extracted successfully")
      );
   } catch(error) {
      console.error("Gemini Extraction Error:", error);

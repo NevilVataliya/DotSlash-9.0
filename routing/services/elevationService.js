@@ -5,7 +5,7 @@ dotenv.config();
 
 const OPEN_TOPO_API_KEY = process.env.OPEN_TOPO_DATA_API_KEY || 'YOUR_OPEN_TOPO_DATA_API_KEY_PLACEHOLDER';
 // Using the SRTM 90m dataset as requested
-const OPEN_TOPO_BASE_URL = 'https://api.opentopodata.org/v1/srtm90m';
+const OPEN_TOPO_BASE_URL = process.env.OPEN_TOPO_BASE_URL || 'https://api.opentopodata.org/v1/srtm90m';
 
 /**
  * Fetch elevation for a list of coordinates

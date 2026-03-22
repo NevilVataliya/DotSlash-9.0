@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { PREDEFINED_LOCATIONS } from '../data/demoData';
 
-const POOL_API_URL = 'http://localhost:5000/api/v1/pools';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
+const POOL_API_URL = `${API_BASE_URL}/pools`;
 const MY_TRIP_ID = '65f0a34b2c12345678901234';
 
 export default function RidePool() {

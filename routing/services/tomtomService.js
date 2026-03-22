@@ -4,7 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const TOMTOM_API_KEY = process.env.TOMTOM_API_KEY || 'YOUR_TOMTOM_API_KEY_PLACEHOLDER';
-const TOMTOM_BASE_URL = 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json';
+const TOMTOM_TRAFFIC_BASE_URL = process.env.TOMTOM_TRAFFIC_BASE_URL || 'https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json';
+const TOMTOM_ROUTING_BASE_URL = process.env.TOMTOM_ROUTING_BASE_URL || 'https://api.tomtom.com/routing/1';
 
 /**
  * Fetch traffic data for a single segment
@@ -26,7 +27,7 @@ export async function getTrafficData(lat, lon) {
   }
 
   try {
-    const response = await axios.get(TOMTOM_BASE_URL, {
+    const response = await axios.get(TOMTOM_TRAFFIC_BASE_URL, {
       params: {
         key: TOMTOM_API_KEY,
         point: `${lat},${lon}`,
@@ -94,7 +95,7 @@ export async function fetchTomTomRoute(locations, routeType = 'fastest') {
   try {
     // Format locations for TomTom: lat,lon:lat,lon:lat,lon
     const waypoints = locations.map(l => `${l.lat},${l.lng || l.lon}`).join(':');
-    const url = `https://api.tomtom.com/routing/1/calculateRoute/${waypoints}/json`;
+    const url = `${TOMTOM_ROUTING_BASE_URL}/calculateRoute/${waypoints}/json`;
 
     const response = await axios.get(url, {
       params: {

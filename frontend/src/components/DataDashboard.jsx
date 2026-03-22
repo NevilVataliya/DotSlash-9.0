@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { WEATHER_DATA, TRAFFIC_LEVELS, ELEVATION_PROFILES, calculateFuelUsage } from '../data/demoData';
 import { formatCost } from '../utils/mapHelpers';
 
+const FUEL_API_URL = import.meta.env.VITE_FUEL_API_URL || 'https://fuel.indianapi.in/live_fuel_price?fuel_type=petrol&location_type=state';
+
 function ElevationChart({ profile }) {
   if (!profile || profile.length < 2) return null;
 
@@ -52,7 +54,7 @@ export default function DataDashboard({ route, vehicle, show, source }) {
       try {
         const apiKey = import.meta.env.VITE_API_KEY_FUEL || "YOUR_API_KEY";
           
-        const res = await fetch("https://fuel.indianapi.in/live_fuel_price?fuel_type=petrol&location_type=state", {
+        const res = await fetch(FUEL_API_URL, {
           headers: { "x-api-key": apiKey }
         });
         const data = await res.json();  

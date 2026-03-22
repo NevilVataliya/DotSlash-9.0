@@ -1,7 +1,7 @@
 import axios from 'axios';
 import polyline from '@mapbox/polyline';
 
-const VALHALLA_BASE_URL = 'https://valhalla1.openstreetmap.de/route';
+const VALHALLA_BASE_URL = process.env.VALHALLA_BASE_URL || 'https://valhalla1.openstreetmap.de/route';
 
 /**
  * Fetch routes from Valhalla

@@ -40,13 +40,35 @@ app.use("/api/v1/pools", poolRouter)
 app.use("/api/v1/parcels", parcelRouter)
 app.use("/api/v1/credits", creditRouter)
 
-//localhost:8000/api/v1/users/register or anything in the urserRouter 
+// /api/v1/users/register or anything in the userRouter
 app.get('/', (req, res) => {
     res.json('SErver is ready');
 });
 
-const port = process.env.PORT || 5000;
+app.use((req, res) => {
+    res.status(404).json({
+        success: false,
+        message: "Route not found",
+    });
+});
 
-app.listen(port, () => {
-    console.log(`Server at http://localhost:${port}`);
+app.use((err, req, res, next) => {
+    const statusCode = err?.statusCode || 500;
+    const message = err?.message || "Internal Server Error";
+
+    console.error("API Error:", err);
+
+    res.status(statusCode).json({
+        success: false,
+        message,
+        errors: err?.errors || [],
+    });
+});
+
+const port = process.env.PORT || 5000;
+const host = process.env.HOST || '0.0.0.0';
+const publicUrl = process.env.SERVER_PUBLIC_URL || `http://${host}:${port}`;
+
+app.listen(port, host, () => {
+    console.log(`Server at ${publicUrl}`);
 });

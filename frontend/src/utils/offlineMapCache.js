@@ -1,5 +1,6 @@
 const MAP_TILE_CACHE = 'eco-map-tiles-v1';
 const MAP_SUBDOMAINS = ['a', 'b', 'c', 'd'];
+const MAP_TILE_URL_TEMPLATE = import.meta.env.VITE_MAP_TILE_URL || 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
 
 function lonToTileX(lon, zoom) {
   return Math.floor(((lon + 180) / 360) * 2 ** zoom);
@@ -14,7 +15,12 @@ function latToTileY(lat, zoom) {
 
 function buildTileUrl(zoom, x, y) {
   const subdomain = MAP_SUBDOMAINS[(x + y + zoom) % MAP_SUBDOMAINS.length];
-  return `https://${subdomain}.basemaps.cartocdn.com/dark_all/${zoom}/${x}/${y}.png`;
+  return MAP_TILE_URL_TEMPLATE
+    .replace('{s}', subdomain)
+    .replace('{z}', String(zoom))
+    .replace('{x}', String(x))
+    .replace('{y}', String(y))
+    .replace('{r}', '');
 }
 
 function addTile(tiles, zoom, x, y, radius) {

@@ -10,6 +10,8 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
+const ROUTING_PUBLIC_URL = process.env.ROUTING_PUBLIC_URL || `http://${HOST}:${PORT}`;
 
 app.use(cors());
 app.use(express.json());
@@ -91,9 +93,9 @@ app.post('/api/route', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`Routing service successfully started.`);
-  console.log(`Endpoint: http://localhost:${PORT}/api/route`);
+  console.log(`Endpoint: ${ROUTING_PUBLIC_URL}/api/route`);
   console.log('--- Ready for requests ---');
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {

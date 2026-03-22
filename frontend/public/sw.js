@@ -43,6 +43,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
 
+  if (!isHttpRequest(url)) {
+    return;
+  }
+
   if (isTileRequest(url)) {
     event.respondWith(cacheFirst(request, TILE_CACHE, 2500));
     return;
@@ -70,6 +74,10 @@ function isTileRequest(url) {
   return url.hostname.includes('cartocdn.com') || url.hostname.includes('tile.openstreetmap.org');
 }
 
+function isHttpRequest(url) {
+  return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
 function isApiRequest(url) {
   return (
     url.pathname.includes('/api/route') ||
@@ -84,8 +92,8 @@ async function cacheFirst(request, cacheName, maxEntries) {
 
   try {
     const response = await fetch(request);
-    if (response.ok) {
-      cache.put(request, response.clone());
+    if (response.ok && isCacheableRequest(request)) {
+      await cache.put(request, response.clone());
       if (maxEntries) {
         await trimCache(cacheName, maxEntries);
       }
@@ -101,8 +109,8 @@ async function networkFirst(request, cacheName, fallbackPath) {
 
   try {
     const response = await fetch(request);
-    if (response.ok) {
-      cache.put(request, response.clone());
+    if (response.ok && isCacheableRequest(request)) {
+      await cache.put(request, response.clone());
     }
     return response;
   } catch {
@@ -124,15 +132,27 @@ async function staleWhileRevalidate(request, cacheName) {
   const cached = await cache.match(request);
 
   const networkPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        cache.put(request, response.clone());
+    .then(async (response) => {
+      if (response.ok && isCacheableRequest(request)) {
+        try {
+          await cache.put(request, response.clone());
+        } catch {
+        }
       }
       return response;
     })
     .catch(() => null);
 
   return cached || networkPromise || Response.error();
+}
+
+function isCacheableRequest(request) {
+  try {
+    const url = new URL(request.url);
+    return isHttpRequest(url);
+  } catch {
+    return false;
+  }
 }
 
 async function trimCache(cacheName, maxEntries) {

@@ -15,7 +15,7 @@ import { prefetchTilesForRoutes } from '../utils/offlineMapCache';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
-const BACKEND_URL = 'http://localhost:3001/api/route';
+const BACKEND_URL = import.meta.env.VITE_ROUTING_API_URL || '/api/route';
 
 // How far off-route (meters) before re-routing triggers
 const REROUTE_THRESHOLD_M = 100;

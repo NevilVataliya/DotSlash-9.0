@@ -1,5 +1,11 @@
 import axios from 'axios';
 
+const ROUTING_API_URL = process.env.ROUTING_API_URL;
+
+if (!ROUTING_API_URL) {
+  throw new Error('ROUTING_API_URL is not set. Configure it in your environment before running this script.');
+}
+
 const data = {
   source: { lat: 21.1702, lng: 72.8311 }, // Surat, India
   destination: { lat: 19.0760, lng: 72.8777 }, // Mumbai, India
@@ -8,8 +14,8 @@ const data = {
   weather: 'clear'
 };
 
-console.log('Sending request to http://localhost:3001/api/route...');
-axios.post('http://localhost:3001/api/route', data)
+console.log(`Sending request to ${ROUTING_API_URL}...`);
+axios.post(ROUTING_API_URL, data)
   .then(response => {
     console.log('SUCCESS: API response received.');
     console.log(`--- FASTEST ROUTE SUMMARY (Source: ${response.data.fastest.source}) ---`);

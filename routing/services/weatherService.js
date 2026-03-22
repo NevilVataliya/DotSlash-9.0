@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const OWM_API_KEY = process.env.OPENWEATHER_API_KEY || 'YOUR_OPENWEATHER_API_KEY_PLACEHOLDER';
-const OWM_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
+const OWM_BASE_URL = process.env.OPENWEATHER_BASE_URL || 'https://api.openweathermap.org/data/2.5/weather';
 
 /**
  * Fetch real-time weather for a coordinate

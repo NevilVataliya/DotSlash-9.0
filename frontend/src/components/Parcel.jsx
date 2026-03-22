@@ -2,8 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { PREDEFINED_LOCATIONS } from '../data/demoData';
 
-const PARCEL_API_URL = 'http://localhost:5000/api/v1/parcels';
-const USER_API_URL = 'http://localhost:5000/api/v1/pools/demo-user';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
+const PARCEL_API_URL = `${API_BASE_URL}/parcels`;
+const USER_API_URL = `${API_BASE_URL}/pools/demo-user`;
 
 export default function Parcel() {
   const [currentUser, setCurrentUser] = useState(null);

@@ -6,7 +6,7 @@ import { addVehicle, deleteVehicle, getVehicleById, getVehicles, updateVehicle, 
 
 const router = Router();
 
-router.route("/addvehicle").post(addVehicle)
+router.route("/addvehicle").post(verifyJWT, addVehicle)
 router.route("/getvehicles").get(verifyJWT,getVehicles)
 router.route("/:id/getvehiclebyid").get(verifyJWT,getVehicleById)
 router.route("/:id/deletevehicle").delete(verifyJWT,deleteVehicle)

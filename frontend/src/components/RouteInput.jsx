@@ -1,6 +1,33 @@
 import { useState, useRef, useEffect } from 'react';
 import { PREDEFINED_LOCATIONS } from '../data/demoData';
 
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
+const GEOCODING_BASE_URL = (import.meta.env.VITE_GEOCODING_BASE_URL || 'https://nominatim.openstreetmap.org').replace(/\/$/, '');
+
+async function parseApiResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  const raw = await response.text();
+
+  if (contentType.includes('application/json')) {
+    try {
+      return JSON.parse(raw || '{}');
+    } catch {
+      return { success: false, message: 'Invalid JSON response from server' };
+    }
+  }
+
+  try {
+    return JSON.parse(raw || '{}');
+  } catch {
+    return {
+      success: false,
+      message: raw?.startsWith('<!DOCTYPE')
+        ? 'Server returned HTML instead of JSON. Check API URL and backend error logs.'
+        : (raw || 'Unexpected server response'),
+    };
+  }
+}
+
 function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showConnector }) {
   const [query, setQuery] = useState(value ? value.name : '');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -29,7 +56,7 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
 
         setIsLoading(true);
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+          const res = await fetch(`${GEOCODING_BASE_URL}/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
           const data = await res.json();
           const apiSuggestions = data.map(item => ({
             name: item.display_name,
@@ -99,7 +126,7 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
           return;
         }
 
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+        const res = await fetch(`${GEOCODING_BASE_URL}/reverse?format=json&lat=${latitude}&lon=${longitude}`);
         const data = await res.json();
         const locName = data.display_name || fallback.name;
         const loc = { name: locName, lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
@@ -186,6 +213,33 @@ export default function RouteInput({
   const [audioFile, setAudioFile] = useState(null);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractedData, setExtractedData] = useState(null);
+  const [showExtractedPopup, setShowExtractedPopup] = useState(false);
+
+  const hasMeaningfulValue = (value) => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      return normalized !== '' && !['n/a', 'na', 'not available', 'unknown', 'undefined', 'null', 'none', '-'].includes(normalized);
+    }
+    if (typeof value === 'number') return Number.isFinite(value);
+    return true;
+  };
+
+  function getExtractedTitle(data) {
+    if (!data) return 'Vehicle details extracted';
+
+    const make = hasMeaningfulValue(data.make) ? data.make : '';
+    const model = hasMeaningfulValue(data.model) ? data.model : '';
+    const type = hasMeaningfulValue(data.type) ? data.type : '';
+    const year = hasMeaningfulValue(data.year) ? ` (${data.year})` : '';
+
+    const makeModel = `${make} ${model}`.trim();
+    if (makeModel) return `${makeModel}${year}`;
+    if (type) return `${type.toUpperCase()}${year}`;
+    if (data.parsedAudioNote?.notes) return 'Audio details extracted';
+
+    return 'Vehicle details extracted';
+  }
 
   const handleExtractInfo = async () => {
     if (!imageFile && !audioFile) return;
@@ -195,7 +249,7 @@ export default function RouteInput({
       if (imageFile) formData.append('image', imageFile);
       if (audioFile) formData.append('audio', audioFile);
 
-      const res = await fetch('http://localhost:5000/api/v1/vehicles/extract-info', {
+      const res = await fetch(`${API_BASE_URL}/vehicles/extract-info`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
@@ -203,12 +257,23 @@ export default function RouteInput({
         body: formData,
         credentials: 'omit' // use omit if jwt in header, include if using cookies. Assuming cookies are set via credentials: true in cors but checking both.
       });
-      const result = await res.json();
+      const result = await parseApiResponse(res);
+
+      if (!res.ok) {
+        alert('Extraction failed: ' + (result.message || `HTTP ${res.status}`));
+        return;
+      }
 
       if (result.statusCode === 200 || result.success) {
         const data = result.data;
         setExtractedData(data);
-        alert(`Extracted: ${data.make} ${data.model} (${data.year || 'Unknown year'})`);
+        setShowExtractedPopup(true);
+
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+          console.log('Vehicle extracted without sign-in. Skipping save.');
+          return;
+        }
 
         // Now save to DB
         // ensure type is set to match schema requirement ("car", "bike", "bus", "truck")
@@ -216,15 +281,21 @@ export default function RouteInput({
         if (!vType && vehicleId === 'motorcycle') vType = 'bike';
         else if (!vType) vType = 'car';
 
-        const saveRes = await fetch('http://localhost:5000/api/v1/vehicles/addvehicle', {
+        const saveRes = await fetch(`${API_BASE_URL}/vehicles/addvehicle`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('accessToken') || ''}`
+            'Authorization': `Bearer ${accessToken}`
           },
           body: JSON.stringify({ ...data, type: vType })
         });
-        const saveResult = await saveRes.json();
+        const saveResult = await parseApiResponse(saveRes);
+
+        if (!saveRes.ok) {
+          alert('Saving vehicle failed: ' + (saveResult.message || `HTTP ${saveRes.status}`));
+          return;
+        }
+
         if (saveResult.statusCode === 201 || saveResult.success) {
           console.log("Saved vehicle to DB successfully");
         }
@@ -233,7 +304,11 @@ export default function RouteInput({
       }
     } catch (err) {
       console.error(err);
-      alert('Error during extraction');
+      if (err?.name === 'TypeError' || String(err?.message || '').includes('Failed to fetch')) {
+        alert('Extraction service is unreachable. Make sure frontend dev server (5173) and backend server (5000) are running, then refresh and try again.');
+      } else {
+        alert('Error during extraction: ' + (err?.message || 'Unknown error'));
+      }
     } finally {
       setIsExtracting(false);
     }
@@ -353,11 +428,74 @@ export default function RouteInput({
         </button>
         {extractedData && (
           <div style={{ marginTop: '8px', padding: '8px', backgroundColor: 'rgba(0, 230, 118, 0.1)', color: '#00E676', borderRadius: '4px', fontSize: '0.85rem' }}>
-            <strong>Extracted:</strong> {extractedData.make} {extractedData.model} ({extractedData.year})<br />
-            <strong>Fuel Type:</strong> {extractedData.fuelType}
+            <strong>Extracted:</strong> {getExtractedTitle(extractedData)}<br />
+            {hasMeaningfulValue(extractedData.fuelType) && <><strong>Fuel Type:</strong> {extractedData.fuelType}</>}
           </div>
         )}
       </div>
+
+      {showExtractedPopup && extractedData && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 5000,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }}>
+          <div style={{
+            width: 'min(540px, 95vw)',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-lg)',
+            boxShadow: 'var(--shadow-lg)',
+            padding: '16px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem' }}>✨ Extraction Result</h3>
+              <button
+                className="remove-stop-btn"
+                onClick={() => setShowExtractedPopup(false)}
+                title="Close"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '10px', color: 'var(--text-primary)', fontWeight: 600 }}>
+              {getExtractedTitle(extractedData)}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.9rem' }}>
+              {hasMeaningfulValue(extractedData.type) && <div><strong>Type:</strong> {extractedData.type}</div>}
+              {hasMeaningfulValue(extractedData.fuelType) && <div><strong>Fuel:</strong> {extractedData.fuelType}</div>}
+              {hasMeaningfulValue(extractedData.make) && <div><strong>Make:</strong> {extractedData.make}</div>}
+              {hasMeaningfulValue(extractedData.model) && <div><strong>Model:</strong> {extractedData.model}</div>}
+              {hasMeaningfulValue(extractedData.year) && <div><strong>Year:</strong> {extractedData.year}</div>}
+              {hasMeaningfulValue(extractedData.mileage) && <div><strong>Mileage:</strong> {extractedData.mileage}</div>}
+              {hasMeaningfulValue(extractedData.registrationNumber) && (
+                <div style={{ gridColumn: '1 / -1' }}><strong>Registration:</strong> {extractedData.registrationNumber}</div>
+              )}
+              {hasMeaningfulValue(extractedData.engine?.type) && <div style={{ gridColumn: '1 / -1' }}><strong>Engine:</strong> {extractedData.engine.type}</div>}
+              {hasMeaningfulValue(extractedData.engine?.transmission) && <div><strong>Transmission:</strong> {extractedData.engine.transmission}</div>}
+              {hasMeaningfulValue(extractedData.engine?.displacementCc) && <div><strong>Displacement:</strong> {extractedData.engine.displacementCc} cc</div>}
+              {hasMeaningfulValue(extractedData.dimensions?.fuelTankCapacityL) && <div><strong>Fuel Tank:</strong> {extractedData.dimensions.fuelTankCapacityL} L</div>}
+              {hasMeaningfulValue(extractedData.parsedAudioNote?.ageYears) && <div><strong>Age:</strong> {extractedData.parsedAudioNote.ageYears} years</div>}
+              {hasMeaningfulValue(extractedData.parsedAudioNote?.notes) && (
+                <div style={{ gridColumn: '1 / -1' }}><strong>Audio Notes:</strong> {extractedData.parsedAudioNote.notes}</div>
+              )}
+            </div>
+
+            <div style={{ marginTop: '12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+              You can extract details without signing in. Saving to your vehicle list requires sign-in.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Plan Route Button */}
       <button
