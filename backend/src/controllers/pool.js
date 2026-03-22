@@ -8,7 +8,6 @@ import { ApiResponse } from "../../utils/ApiResponse.js";
 // 1. Driver creates a new pool (ready to pool)
 const userIsReadyToPool = asyncHandler(async (req, res) => {
   const { 
-    driverId, // In a real app with auth, this would be req.user._id
     tripId, 
     originLat, 
     originLng, 
@@ -19,7 +18,9 @@ const userIsReadyToPool = asyncHandler(async (req, res) => {
     pricePerSeat 
   } = req.body;
 
-  if (!driverId || !tripId || !originLat || !originLng || !destLat || !destLng || !departureTime || !availableSeats || pricePerSeat === undefined) {
+  const driverId = req.user._id;
+
+  if (!tripId || !originLat || !originLng || !destLat || !destLng || !departureTime || !availableSeats || pricePerSeat === undefined) {
     throw new ApiError(400, "All fields are required to create a pool.");
   }
 
@@ -93,9 +94,10 @@ const checkAvailableForPool = asyncHandler(async (req, res) => {
 
 // 3. Passenger requests to join a pool
 const requestPool = asyncHandler(async (req, res) => {
-  const { poolId, passengerId, pickupLat, pickupLng, dropoffLat, dropoffLng } = req.body;
+  const { poolId, pickupLat, pickupLng, dropoffLat, dropoffLng } = req.body;
+  const passengerId = req.user._id;
 
-  if (!poolId || !passengerId || !pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
+  if (!poolId || !pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
     throw new ApiError(400, "Missing required fields for requesting a pool.");
   }
 
@@ -178,7 +180,7 @@ const poolStatus = asyncHandler(async (req, res) => {
     throw new ApiError(404, "Pool not found.");
   }
 
-  const passengerRequest = pool.passengers.find(p => p.userId.toString() === passengerId);
+  const passengerRequest = pool.passengers.find(p => p.userId.toString() === passengerId.toString());
   if (!passengerRequest) {
     throw new ApiError(404, "You have not requested this pool.");
   }
@@ -244,20 +246,6 @@ const declinePool = asyncHandler(async (req, res) => {
   );
 });
 
-// 9. Get a demo user for frontend mapping
-const getDemoUser = asyncHandler(async (req, res) => {
-  let user = await User.findOne();
-  if (!user) {
-     user = await User.create({
-       username: "demo" + Date.now(),
-       email: "demo" + Date.now() + "@example.com",
-       fullName: "Demo Driver",
-       password: "password123"
-     });
-  }
-  return res.status(200).json(new ApiResponse(200, user, "Demo user fetched"));
-});
-
 export {
   userIsReadyToPool,
   checkAvailableForPool,
@@ -266,6 +254,5 @@ export {
   declinePool,
   poolStatus,
   getAllPools,
-  getDriverPools,
-  getDemoUser
+  getDriverPools
 };

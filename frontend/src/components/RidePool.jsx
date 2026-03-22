@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
 import { PREDEFINED_LOCATIONS } from '../data/demoData';
+import {
+  getCurrentUser, getAvailablePools, getDriverPools, 
+  schedulePoolRide, requestPoolJoin, acceptPoolJoin, declinePoolJoin
+} from '../lib/api';
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '');
-const POOL_API_URL = `${API_BASE_URL}/pools`;
 const MY_TRIP_ID = '65f0a34b2c12345678901234';
 
 export default function RidePool() {
@@ -30,13 +31,13 @@ export default function RidePool() {
     try {
       setLoading(true);
       // Fetch all available pools
-      const allRes = await axios.get(`${POOL_API_URL}/all`);
-      setRides(allRes.data.data || []);
+      const allRes = await getAvailablePools();
+      setRides(allRes.data || []);
 
       if (userId) {
         // Fetch pools created by this driver
-        const driverRes = await axios.get(`${POOL_API_URL}/driver/${userId}`);
-        setMyPools(driverRes.data.data || []);
+        const driverRes = await getDriverPools(userId);
+        setMyPools(driverRes.data || []);
       }
     } catch (err) {
       console.error("Failed to fetch pools:", err);
@@ -45,20 +46,20 @@ export default function RidePool() {
     }
   };
 
-  const initDemoUser = async () => {
+  const initUser = async () => {
     try {
-      const res = await axios.get(`${POOL_API_URL}/demo-user`);
-      const user = res.data.data;
+      const res = await getCurrentUser();
+      const user = res.data;
       setCurrentUser(user);
       fetchPools(user._id);
     } catch (err) {
-      console.error("Failed to fetch demo user:", err);
+      console.error("Failed to fetch current user inside ride pool:", err);
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    initDemoUser();
+    initUser();
   }, []);
 
   const filteredRides = useMemo(() => {
@@ -84,8 +85,7 @@ export default function RidePool() {
     const departureTime = new Date(`${formData.date}T${formData.time}`).toISOString();
 
     try {
-      await axios.post(`${POOL_API_URL}/ready`, {
-        driverId: currentUser._id,
+      await schedulePoolRide({
         tripId: MY_TRIP_ID,
         originLat: sourceLoc.lat,
         originLng: sourceLoc.lng,
@@ -101,7 +101,7 @@ export default function RidePool() {
       fetchPools(currentUser._id);
     } catch (err) {
       console.error(err);
-      alert('Failed to schedule ride.');
+      alert(err.message || 'Failed to schedule ride.');
     }
   };
 
@@ -117,9 +117,8 @@ export default function RidePool() {
     if (!ride) return;
 
     try {
-      await axios.post(`${POOL_API_URL}/request`, {
+      await requestPoolJoin({
         poolId: ride._id,
-        passengerId: currentUser._id,
         pickupLat: ride.origin.coordinates[1],
         pickupLng: ride.origin.coordinates[0],
         dropoffLat: ride.destination.coordinates[1],
@@ -130,36 +129,30 @@ export default function RidePool() {
       fetchPools(currentUser._id);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to send request.');
+      alert(err.message || 'Failed to send request.');
       setShowContactModal(null);
     }
   };
 
   const handleAcceptRequest = async (poolId, passengerId) => {
     try {
-      await axios.post(`${POOL_API_URL}/accept`, {
-        poolId,
-        passengerId
-      });
+      await acceptPoolJoin({ poolId, passengerId });
       alert('Request accepted!');
       fetchPools(currentUser?._id);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to accept request.');
+      alert(err.message || 'Failed to accept request.');
     }
   };
 
   const handleDeclineRequest = async (poolId, passengerId) => {
     try {
-      await axios.post(`${POOL_API_URL}/decline`, {
-        poolId,
-        passengerId
-      });
+      await declinePoolJoin({ poolId, passengerId });
       alert('Request declined.');
       fetchPools(currentUser?._id);
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to decline request.');
+      alert(err.message || 'Failed to decline request.');
     }
   };
 

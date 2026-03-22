@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { verifyJWT } from "../middleware/auth.js";
 import {
   userIsReadyToPool,
   checkAvailableForPool,
@@ -7,14 +8,13 @@ import {
   declinePool,
   poolStatus,
   getAllPools,
-  getDriverPools,
-  getDemoUser
+  getDriverPools
 } from "../controllers/pool.js";
 
 const router = Router();
 
-// Route to get a demo user
-router.route("/demo-user").get(getDemoUser);
+// Apply auth middleware to all routes below
+router.use(verifyJWT);
 
 // Route for driver to create a pool
 router.route("/ready").post(userIsReadyToPool);

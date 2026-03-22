@@ -67,3 +67,10 @@ export const getUserCredits = async () => {
     headers: { "Content-Type": "application/json" },
   });
 };
+
+export const getAvailablePools = () => request("/pools/all", { method: "GET" });
+export const getDriverPools = (driverId) => request(`/pools/driver/${driverId}`, { method: "GET" });
+export const schedulePoolRide = (data) => request("/pools/ready", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+export const requestPoolJoin = (data) => request("/pools/request", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+export const acceptPoolJoin = (data) => request("/pools/accept", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+export const declinePoolJoin = (data) => request("/pools/decline", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
