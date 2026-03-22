@@ -30,6 +30,7 @@ import tripRouter from './routes/trip.js'
 import vehicleRouter from './routes/vehicle.js'
 import poolRouter from './routes/pool.js'
 import parcelRouter from './routes/parcel.js'
+import creditRouter from './routes/credit.js'
 // // route declaration
 
 app.use("/api/v1/users", userRouter)
@@ -37,6 +38,7 @@ app.use("/api/v1/trips", tripRouter)
 app.use("/api/v1/vehicles", vehicleRouter)
 app.use("/api/v1/pools", poolRouter)
 app.use("/api/v1/parcels", parcelRouter)
+app.use("/api/v1/credits", creditRouter)
 
 //localhost:8000/api/v1/users/register or anything in the urserRouter 
 app.get('/', (req, res) => {

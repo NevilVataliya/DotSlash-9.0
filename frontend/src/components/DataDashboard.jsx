@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { WEATHER_DATA, TRAFFIC_LEVELS, ELEVATION_PROFILES, calculateFuelUsage } from '../data/demoData';
 import { formatCost } from '../utils/mapHelpers';
 
@@ -42,12 +43,73 @@ function ElevationChart({ profile }) {
   );
 }
 
-export default function DataDashboard({ route, vehicle, show }) {
+export default function DataDashboard({ route, vehicle, show, source }) {
+  const [liveFuelPrice, setLiveFuelPrice] = useState(null);
+  const [matchedStateName, setMatchedStateName] = useState(null);
+
+  useEffect(() => {
+    async function fetchLiveFuelPrice() {
+      try {
+        const apiKey = import.meta.env.VITE_API_KEY_FUEL || "YOUR_API_KEY";
+          
+        const res = await fetch("https://fuel.indianapi.in/live_fuel_price?fuel_type=petrol&location_type=state", {
+          headers: { "x-api-key": apiKey }
+        });
+        const data = await res.json();  
+        console.log("Fuel API data:", data);
+        
+        // The API returns: [{ state: "Rajasthan", price: "108.83", change: "0.00" }, ...]
+        if (Array.isArray(data) && data.length > 0) {
+          
+          // Nominatim gives source.name like: "MG Road, Pink City, Jaipur, Rajasthan, 302001, India"
+          // Split by comma into segments and try to match EACH segment against the API state list
+          const addressSegments = source?.name 
+            ? source.name.split(',').map(s => s.trim().toLowerCase()) 
+            : ['delhi'];
+          
+          let matchedState = null;
+
+          // Loop through each segment of the address to find the state
+          for (const segment of addressSegments) {
+            matchedState = data.find(d => {
+              const apiState = d.state.toLowerCase();
+              return apiState === segment || segment.includes(apiState) || apiState.includes(segment);
+            });
+            if (matchedState) break; // Stop at first match
+          }
+
+          // Fallback to Delhi or first entry if no match found
+          if (!matchedState) {
+            matchedState = data.find(d => d.state.toLowerCase() === 'delhi' || d.state.toLowerCase() === 'new delhi') || data[0];
+          }
+
+          console.log("Matched state:", matchedState.state, "Price:", matchedState.price);
+          setLiveFuelPrice(parseFloat(matchedState.price));
+          setMatchedStateName(matchedState.state);
+        } else if (data && data.price) {
+          setLiveFuelPrice(parseFloat(data.price));
+        }
+      } catch (error) {
+        console.error("Failed to fetch live fuel price:", error);
+      }
+    }
+    
+    // Re-fetch when source changes (different city = different price)
+    if (show && route) {
+      fetchLiveFuelPrice();
+    }
+  }, [show, route, source]);
+
   if (!show || !route) return null;
 
   const usage = calculateFuelUsage(route, vehicle);
   const segments = route.segments || [];
   const elevProfile = ELEVATION_PROFILES[route.id] || [];
+  
+  // Calculate total live cost globally using the live API price if available
+  const totalCostDisplay = liveFuelPrice 
+    ? `₹${(parseFloat(usage.fuel) * liveFuelPrice).toFixed(2)}` 
+    : formatCost(usage.cost);
 
   // Aggregate weather along route
   const weatherSummary = {};
@@ -161,13 +223,19 @@ export default function DataDashboard({ route, vehicle, show }) {
           <span className="dash-icon">⛽</span>
           <h4>Fuel</h4>
         </div>
+        {matchedStateName && liveFuelPrice && (
+          <div className="dash-metric" style={{ backgroundColor: 'rgba(0, 230, 118, 0.08)', borderRadius: '4px', padding: '4px 8px', marginBottom: '4px' }}>
+            <span className="dm-label">📍 {matchedStateName} (Petrol)</span>
+            <span className="dm-value" style={{ color: '#00E676' }}>₹{liveFuelPrice}/L</span>
+          </div>
+        )}
         <div className="dash-metric">
           <span className="dm-label">Total Fuel</span>
           <span className="dm-value" style={{ color: 'var(--accent-green)' }}>{usage.fuel} {usage.unit}</span>
         </div>
         <div className="dash-metric">
           <span className="dm-label">Est. Cost</span>
-          <span className="dm-value" style={{ color: 'var(--accent-green)' }}>{formatCost(usage.cost)}</span>
+          <span className="dm-value" style={{ color: 'var(--accent-green)' }}>{totalCostDisplay}</span>
         </div>
         <div className="dash-metric">
           <span className="dm-label">CO₂ Emission</span>
@@ -186,7 +254,9 @@ export default function DataDashboard({ route, vehicle, show }) {
             <div className="segment-item" key={i}>
               <span className="seg-weather">{WEATHER_DATA[seg.weather]?.icon}</span>
               <span className="seg-from-to">{seg.from} → {seg.to}</span>
-              <span className="seg-dist">{seg.fuel} {usage.unit}</span>
+              <span className="seg-dist">
+                {liveFuelPrice ? `₹${(seg.fuel * liveFuelPrice).toFixed(1)}` : `${seg.fuel} ${usage.unit}`}
+              </span>
             </div>
           ))}
           {segmentFuel.length > 4 && (

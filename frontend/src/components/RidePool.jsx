@@ -11,7 +11,7 @@ export default function RidePool() {
   const [myPools, setMyPools] = useState([]);
   const [isScheduling, setIsScheduling] = useState(false);
   const [filterDate, setFilterDate] = useState('');
-  
+
   // Request management state
   const [showContactModal, setShowContactModal] = useState(null); // rideId
   const [loading, setLoading] = useState(true);
@@ -71,7 +71,7 @@ export default function RidePool() {
   const handleSchedule = async (e) => {
     e.preventDefault();
     if (!currentUser) return alert("User not initialized");
-    
+
     const sourceLoc = PREDEFINED_LOCATIONS.find(loc => loc.name === formData.source);
     const destLoc = PREDEFINED_LOCATIONS.find(loc => loc.name === formData.destination);
 
@@ -185,7 +185,7 @@ export default function RidePool() {
     let minDiff = Infinity;
     for (const loc of PREDEFINED_LOCATIONS) {
       const diff = Math.abs(loc.lat - lat) + Math.abs(loc.lng - lng);
-      if (diff < minDiff && diff < 1.0) { 
+      if (diff < minDiff && diff < 1.0) {
         minDiff = diff;
         closest = loc.name;
       }
@@ -198,7 +198,7 @@ export default function RidePool() {
       <div className="pool-header">
         <h2>Ride Pool</h2>
         {currentUser && (
-          <button 
+          <button
             className="schedule-toggle-btn"
             onClick={() => setIsScheduling(!isScheduling)}
           >
@@ -211,10 +211,10 @@ export default function RidePool() {
         <form className="schedule-form panel" onSubmit={handleSchedule}>
           <div className="form-group">
             <label>Source</label>
-            <select 
+            <select
               className="pool-input"
               value={formData.source}
-              onChange={(e) => setFormData({...formData, source: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, source: e.target.value })}
               required
             >
               <option value="">Select city</option>
@@ -225,10 +225,10 @@ export default function RidePool() {
           </div>
           <div className="form-group">
             <label>Destination</label>
-            <select 
+            <select
               className="pool-input"
               value={formData.destination}
-              onChange={(e) => setFormData({...formData, destination: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, destination: e.target.value })}
               required
             >
               <option value="">Select city</option>
@@ -240,35 +240,35 @@ export default function RidePool() {
           <div className="form-grid">
             <div className="form-group">
               <label>Date</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="pool-input"
                 min={new Date().toISOString().split('T')[0]}
                 value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                 required
               />
             </div>
             <div className="form-group">
               <label>Time</label>
-              <input 
-                type="time" 
+              <input
+                type="time"
                 className="pool-input"
                 value={formData.time}
-                onChange={(e) => setFormData({...formData, time: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                 required
               />
             </div>
           </div>
           <div className="form-group">
             <label>Available Seats</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               className="pool-input"
               min="1"
               max="6"
               value={formData.seats}
-              onChange={(e) => setFormData({...formData, seats: parseInt(e.target.value)})}
+              onChange={(e) => setFormData({ ...formData, seats: parseInt(e.target.value) })}
               required
             />
           </div>
@@ -287,7 +287,7 @@ export default function RidePool() {
               const requesterName = req.userId?.fullName || "A User";
               const requesterEmail = req.userId?.email || "No email available";
               const passengerId = req.userId?._id || req.userId;
-              
+
               return (
                 <div key={req._id} className={`request-item ${req.status}`}>
                   <div className="request-info">
@@ -331,16 +331,16 @@ export default function RidePool() {
 
       <div className="pool-filters">
         <span className="filter-label">Filter by Date:</span>
-        <input 
-          type="date" 
-          className="pool-input" 
-          style={{padding: '4px 8px'}}
+        <input
+          type="date"
+          className="pool-input"
+          style={{ padding: '4px 8px' }}
           value={filterDate}
           onChange={(e) => setFilterDate(e.target.value)}
         />
         {filterDate && (
-          <button 
-            className="remove-stop-btn" 
+          <button
+            className="remove-stop-btn"
             onClick={() => setFilterDate('')}
             title="Clear filter"
           >
@@ -362,7 +362,7 @@ export default function RidePool() {
 
             const isMyRide = currentUser && (ride.driverId?._id === currentUser._id || ride.driverId === currentUser._id);
             const myRequest = currentUser && ride.passengers?.find(p => p.userId?._id === currentUser._id || p.userId === currentUser._id);
-            
+
             return (
               <div key={ride._id} className="ride-card">
                 <div className="ride-card-top">
@@ -372,7 +372,7 @@ export default function RidePool() {
                     </div>
                     <div>
                       <div className="owner-name">{ownerName}</div>
-                      <div className="ride-detail-item" style={{fontSize: '10px', color: 'var(--text-muted)'}}>
+                      <div className="ride-detail-item" style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
                         Vehicle
                       </div>
                     </div>
@@ -397,7 +397,7 @@ export default function RidePool() {
 
                 {!isMyRide && (
                   !myRequest ? (
-                    <button 
+                    <button
                       className="contact-btn"
                       onClick={() => handleJoinClick(ride._id)}
                     >

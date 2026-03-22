@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createIcon, createStopIcon } from '../utils/mapHelpers';
 
@@ -11,6 +12,20 @@ function FitBounds({ route }) {
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
     }
   }, [route, map]);
+  return null;
+}
+
+function RecenterMap({ position }) {
+  const map = useMap();
+  const prevPos = useRef(null);
+  useEffect(() => {
+    if (!position) return;
+    const { lat, lng } = position;
+    if (!prevPos.current || prevPos.current.lat !== lat || prevPos.current.lng !== lng) {
+      map.setView([lat, lng], Math.max(map.getZoom(), 14), { animate: true });
+      prevPos.current = position;
+    }
+  }, [position, map]);
   return null;
 }
 
@@ -30,8 +45,21 @@ function AnimatedPolyline({ positions, color, weight, opacity, dashArray }) {
   );
 }
 
-export default function MapView({ routes, selectedRoute, source, destination, stops, onSelectRoute }) {
-  const defaultCenter = [27.7, 76.5]; // Center between Delhi-Jaipur
+const gpsIcon = L.divIcon({
+  className: '',
+  html: `
+    <div class="gps-marker-wrapper">
+      <div class="gps-pulse-ring"></div>
+      <div class="gps-dot"></div>
+    </div>
+  `,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -20],
+});
+
+export default function MapView({ routes, selectedRoute, source, destination, stops, onSelectRoute, userPosition }) {
+  const defaultCenter = [27.7, 76.5];
   const defaultZoom = 8;
 
   const allRoutes = routes ? Object.values(routes) : [];
@@ -51,7 +79,7 @@ export default function MapView({ routes, selectedRoute, source, destination, st
           maxZoom={19}
         />
 
-        {/* Render non-selected routes as faded */}
+        {/* Non-selected routes as faded */}
         {allRoutes.map((route) => {
           if (selectedRoute && route.id !== selectedRoute) {
             return (
@@ -68,17 +96,15 @@ export default function MapView({ routes, selectedRoute, source, destination, st
           return null;
         })}
 
-        {/* Render selected route on top with glow */}
+        {/* Selected route with glow */}
         {activeRoute && (
           <>
-            {/* Glow layer */}
             <AnimatedPolyline
               positions={activeRoute.coordinates}
               color={activeRoute.color}
               weight={10}
               opacity={0.15}
             />
-            {/* Main line */}
             <AnimatedPolyline
               positions={activeRoute.coordinates}
               color={activeRoute.color}
@@ -126,7 +152,23 @@ export default function MapView({ routes, selectedRoute, source, destination, st
           )
         ))}
 
-        {activeRoute && <FitBounds route={activeRoute} />}
+        {/* Live GPS user position marker */}
+        {userPosition && (
+          <>
+            <Marker position={[userPosition.lat, userPosition.lng]} icon={gpsIcon}>
+              <Popup>
+                <div style={{ fontFamily: "'Inter', sans-serif", fontSize: '13px' }}>
+                  <strong style={{ color: '#448AFF' }}>📡 You are here</strong><br />
+                  {userPosition.lat.toFixed(5)}, {userPosition.lng.toFixed(5)}
+                </div>
+              </Popup>
+            </Marker>
+            <RecenterMap position={userPosition} />
+          </>
+        )}
+
+        {/* Fit map to route only when not tracking GPS */}
+        {!userPosition && activeRoute && <FitBounds route={activeRoute} />}
       </MapContainer>
     </div>
   );
