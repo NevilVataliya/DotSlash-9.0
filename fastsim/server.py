@@ -949,12 +949,15 @@ def _build_business_routes(evaluated: List[Dict[str, Any]]) -> List[Dict[str, An
     shortest = min(evaluated, key=lambda route: (route["distance_km"], route["duration_s"], route["estimated_co2_kg"]))
     least_co2 = min(evaluated, key=lambda route: (route["estimated_co2_kg"], route["estimated_fuel_liters"], route["duration_s"]))
 
+    max_co2 = max(r["estimated_co2_kg"] for r in evaluated)
+
     def to_response(route: Dict[str, Any], label: str) -> Dict[str, Any]:
         resp = {
             "type": label,
             "distance_km": route["distance_km"],
             "estimated_fuel_liters": route["estimated_fuel_liters"],
             "estimated_co2_kg": route["estimated_co2_kg"],
+            "co2_savings_kg": round(max_co2 - route["estimated_co2_kg"], 3),
             "source_type": route["type"],
         }
         if route.get("estimated_energy_kwh", 0.0) > 0:

@@ -27,9 +27,9 @@ app.post('/api/route', async (req, res) => {
 
   try {
     const locations = [source, ...stops, destination];
-    
+
     console.log('--- Initiating Multi-Engine Routing ---');
-    
+
     // 1. Fetch from Valhalla (or Mock)
     console.log('Engine 1: Fetching Valhalla/Mock routes...');
     const valhallaResponse = await fetchRoutes(locations);
@@ -62,16 +62,27 @@ app.post('/api/route', async (req, res) => {
     const shortest = [...optimizedRoutes].sort((a, b) => a.distance - b.distance)[0];
 
     // Lowest Fuel Usage (Fuel Optimized)
-    const fuelOptimized = [...optimizedRoutes].sort((a, b) => 
+    const fuelOptimized = [...optimizedRoutes].sort((a, b) =>
       parseFloat(a.fuelMetrics.fuelUsed) - parseFloat(b.fuelMetrics.fuelUsed)
     )[0];
 
+    // Lowest CO2 Emissions (Least CO2)
+    const leastCo2 = [...optimizedRoutes].sort((a, b) =>
+      parseFloat(a.fuelMetrics.co2) - parseFloat(b.fuelMetrics.co2)
+    )[0];
+
+    // Calculate CO2 Savings for each route vs the worst performer
+    const maxCo2 = Math.max(...optimizedRoutes.map(r => parseFloat(r.fuelMetrics.co2)));
+    fuelOptimized.fuelMetrics.co2Savings = (maxCo2 - parseFloat(fuelOptimized.fuelMetrics.co2)).toFixed(2);
+    leastCo2.fuelMetrics.co2Savings = (maxCo2 - parseFloat(leastCo2.fuelMetrics.co2)).toFixed(2);
+
     console.log(`SUCCESS: Best routes selected. (Fastest Source: ${fastest.source})`);
-    
+
     res.json({
       fastest: { ...fastest, label: 'Fastest' },
       shortest: { ...shortest, label: 'Shortest' },
-      fuelOptimized: { ...fuelOptimized, label: 'Fuel Optimized' }
+      fuelOptimized: { ...fuelOptimized, label: 'Fuel Optimized' },
+      leastCo2: { ...leastCo2, label: 'Least CO₂' }
     });
 
   } catch (error) {
