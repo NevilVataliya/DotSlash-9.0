@@ -27,6 +27,7 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
       <div className="route-comparison">
         {routeList.map((route) => {
           const isBest = route.id === 'fuel-optimized';
+          const isLeastCo2 = route.id === 'least-co2';
 
           return (
             <div
@@ -36,6 +37,7 @@ export default function RouteComparison({ routes, selectedRoute, onSelectRoute, 
               onClick={() => onSelectRoute(route.id)}
             >
               {isBest && <div className="badge">🌿 Best</div>}
+              {isLeastCo2 && <div className="badge" style={{ background: 'linear-gradient(135deg, #7C4DFF, #448AFF)' }}>🌍 Lowest CO₂</div>}
 
               <div className="route-card-header">
                 <div className="route-dot"></div>

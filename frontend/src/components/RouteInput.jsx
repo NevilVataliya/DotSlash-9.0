@@ -15,8 +15,18 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
   // Debounced API Search for locations (Geocoding)
   useEffect(() => {
     const delayDebounceFn = setTimeout(async () => {
+      const localMatch = PREDEFINED_LOCATIONS.filter(loc =>
+        loc.name.toLowerCase().includes(query.toLowerCase())
+      );
+
       // Only search if user typed > 2 chars and it's not simply matching the currently selected value
       if (query.length > 2 && (!value || query !== value.name)) {
+        if (!navigator.onLine) {
+          setSuggestions(localMatch);
+          setShowSuggestions(true);
+          return;
+        }
+
         setIsLoading(true);
         try {
           const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
@@ -27,16 +37,13 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
             lng: parseFloat(item.lon),
             coordinates: [parseFloat(item.lon), parseFloat(item.lat)] // [lng, lat] format
           }));
-          
-          // Also include any local predefined matches
-          const localMatch = PREDEFINED_LOCATIONS.filter(loc =>
-            loc.name.toLowerCase().includes(query.toLowerCase())
-          );
-          
+
           setSuggestions([...localMatch, ...apiSuggestions]);
           setShowSuggestions(true);
         } catch (error) {
           console.error("Geocoding failed", error);
+          setSuggestions(localMatch);
+          setShowSuggestions(true);
         } finally {
           setIsLoading(false);
         }
@@ -83,17 +90,24 @@ function LocationInput({ value, onChange, onSelect, placeholder, dotClass, showC
     setQuery("Locating...");
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
+      const fallback = { name: "Current Location", lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
+
       try {
+        if (!navigator.onLine) {
+          setQuery(fallback.name);
+          onSelect(fallback);
+          return;
+        }
+
         const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
         const data = await res.json();
-        const locName = data.display_name || "Current Location";
+        const locName = data.display_name || fallback.name;
         const loc = { name: locName, lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
         setQuery(locName);
         onSelect(loc);
       } catch (error) {
-        const loc = { name: "Current Location", lat: latitude, lng: longitude, coordinates: [longitude, latitude] };
-        setQuery("Current Location");
-        onSelect(loc);
+        setQuery(fallback.name);
+        onSelect(fallback);
       }
     }, (err) => {
       console.error(err);

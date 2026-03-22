@@ -190,6 +190,7 @@ export function calculateFuelUsage(route, vehicle) {
       fuel: route.fuelMetrics.fuelUsed || 0,
       cost: route.fuelMetrics.cost || 0,
       co2: route.fuelMetrics.co2 || 0,
+      co2Savings: route.fuelMetrics.co2Savings || route.co2_savings_kg || 0,
       unit: route.fuelMetrics.fuelUnit || (vehicle.fuelType === 'Electric' ? 'kWh' : 'L'),
     };
   }
@@ -204,6 +205,7 @@ export function calculateFuelUsage(route, vehicle) {
     fuel: totalFuel.toFixed(1),
     cost: cost.toFixed(0),
     co2: co2.toFixed(1),
+    co2Savings: route.co2_savings_kg || 0,
     unit: vehicle.fuelType === 'Electric' ? 'kWh' : 'L',
   };
 }

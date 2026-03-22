@@ -5,17 +5,28 @@ import RouteInput from '../components/RouteInput';
 import RouteComparison from '../components/RouteComparison';
 import DataDashboard from '../components/DataDashboard';
 import RidePool from '../components/RidePool';
+import InstallAppButton from '../components/InstallAppButton';
+import NavigationInstructions from '../components/NavigationInstructions';
 import { VEHICLE_PROFILES, PREDEFINED_LOCATIONS } from '../data/demoData';
+import { createRoutePlanSignature, loadLatestOfflineRoute, loadOfflineRouteBySignature, saveOfflineRoutePlan } from '../utils/offlineRouteStore';
+import { createNavigationInstructions, generateOfflineRoutes } from '../utils/offlineRouting';
+import { prefetchTilesForRoutes } from '../utils/offlineMapCache';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 const BACKEND_URL = 'http://localhost:3001/api/route';
 
 const ROUTE_CONFIG = {
   fuelOptimized: { id: 'fuel-optimized', label: 'Fuel Optimized', color: '#00E676', desc: 'Optimized for minimal fuel consumption & CO2 emissions' },
   fastest: { id: 'fastest', label: 'Fastest', color: '#FF5252', desc: 'Express route prioritized for minimum travel time' },
-  shortest: { id: 'shortest', label: 'Shortest Distance', color: '#448AFF', desc: 'The most direct path with minimum total distance' }
+  shortest: { id: 'shortest', label: 'Shortest Distance', color: '#448AFF', desc: 'The most direct path with minimum total distance' },
+  leastCo2: { id: 'least-co2', label: 'Least CO₂', color: '#7C4DFF', desc: 'Route with the lowest carbon dioxide emissions' }
 };
 
 export default function Dashboard() {
+  const isOnline = useOnlineStatus();
+  const { canInstall, promptInstall } = useInstallPrompt();
+
   // Navigation state
   const [activeTab, setActiveTab] = useState('route'); // 'route' | 'pool'
 
@@ -30,8 +41,58 @@ export default function Dashboard() {
   const [routes, setRoutes] = useState(null);
   const [selectedRoute, setSelectedRoute] = useState(null);
   const [showDashboard, setShowDashboard] = useState(true);
+  const [routeSource, setRouteSource] = useState(null);
+  const [cacheBanner, setCacheBanner] = useState('');
 
   const vehicle = VEHICLE_PROFILES.find(v => v.id === vehicleId) || VEHICLE_PROFILES[0];
+
+  const enrichRoutesWithInstructions = useCallback((routeSet) => {
+    if (!routeSet) return routeSet;
+
+    const cloned = { ...routeSet };
+    Object.keys(cloned).forEach((key) => {
+      const route = cloned[key];
+      if (!route.instructions || !route.instructions.length) {
+        cloned[key] = {
+          ...route,
+          instructions: createNavigationInstructions(route),
+        };
+      }
+    });
+    return cloned;
+  }, []);
+
+  const transformBackendRoutes = useCallback((backendData) => {
+    const transformedRoutes = {};
+
+    Object.keys(backendData || {}).forEach((key) => {
+      const route = backendData[key];
+      const config = ROUTE_CONFIG[key];
+      if (!config) return;
+
+      transformedRoutes[config.id] = {
+        ...route,
+        id: config.id,
+        label: config.label,
+        description: config.desc,
+        color: config.color,
+        elevationGain: route.fuelMetrics?.elevationGain ?? route.elevationGain ?? 0,
+        fuelUsed: route.fuelMetrics?.fuelUsed ?? route.fuelUsed ?? 0,
+        cost: route.fuelMetrics?.cost ?? route.cost ?? 0,
+        co2: route.fuelMetrics?.co2 ?? route.co2 ?? 0,
+        unit: route.fuelMetrics?.fuelUnit ?? route.unit,
+      };
+    });
+
+    return enrichRoutesWithInstructions(transformedRoutes);
+  }, [enrichRoutesWithInstructions]);
+
+  const warmOfflineMapCache = useCallback(async (routeSet) => {
+    const result = await prefetchTilesForRoutes(routeSet, { zooms: [10, 11, 12], radius: 1, maxTiles: 650 });
+    if (!result.plannedTiles) return;
+
+    setCacheBanner(`Offline map pack ready (${result.cachedTiles}/${result.plannedTiles} tiles cached)`);
+  }, []);
 
   const handlePlanRoute = useCallback(async () => {
     // Basic validation
@@ -43,8 +104,16 @@ export default function Dashboard() {
     setIsLoading(true);
     setRoutes(null);
     setSelectedRoute(null);
+    setRouteSource(null);
+    setCacheBanner('');
+
+    const signature = createRoutePlanSignature({ source, destination, stops, vehicleId });
 
     try {
+      if (!isOnline) {
+        throw new Error('offline');
+      }
+
       const response = await axios.post(BACKEND_URL, {
         source,
         destination,
@@ -54,37 +123,64 @@ export default function Dashboard() {
       });
 
       const backendData = response.data;
-      const transformedRoutes = {};
-
-      // Transform backend keys to frontend format
-      Object.keys(backendData).forEach(key => {
-        const route = backendData[key];
-        const config = ROUTE_CONFIG[key];
-
-        transformedRoutes[config.id] = {
-          ...route,
-          id: config.id,
-          label: config.label,
-          description: config.desc,
-          color: config.color,
-          // Extract specific metrics for UI
-          elevationGain: route.fuelMetrics.elevationGain,
-          fuelUsed: route.fuelMetrics.fuelUsed,
-          cost: route.fuelMetrics.cost,
-          co2: route.fuelMetrics.co2,
-          unit: route.fuelMetrics.fuelUnit
-        };
-      });
+      const transformedRoutes = transformBackendRoutes(backendData);
 
       setRoutes(transformedRoutes);
       setSelectedRoute('fuel-optimized');
+      setRouteSource('online');
+
+      saveOfflineRoutePlan({
+        signature,
+        routes: transformedRoutes,
+        selectedRoute: 'fuel-optimized',
+        source,
+        destination,
+        stops,
+        vehicleId,
+      });
+
+      warmOfflineMapCache(transformedRoutes);
     } catch (error) {
       console.error('Error planning route:', error);
-      alert('Failed to connect to the routing service. Is the backend running on port 3001?');
+
+      const exactCached = loadOfflineRouteBySignature(signature);
+      const latestCached = loadLatestOfflineRoute();
+      const cachedPlan = exactCached || latestCached;
+
+      if (cachedPlan?.routes) {
+        const cachedRoutes = enrichRoutesWithInstructions(cachedPlan.routes);
+        setRoutes(cachedRoutes);
+        setSelectedRoute(cachedPlan.selectedRoute || Object.keys(cachedRoutes)[0]);
+        setRouteSource(exactCached ? 'offline-cache-match' : 'offline-cache-last');
+        return;
+      }
+
+      const generatedRoutes = generateOfflineRoutes({ source, destination, stops, vehicleId });
+
+      if (generatedRoutes) {
+        const withInstructions = enrichRoutesWithInstructions(generatedRoutes);
+        setRoutes(withInstructions);
+        setSelectedRoute('fuel-optimized');
+        setRouteSource('offline-generated');
+
+        saveOfflineRoutePlan({
+          signature,
+          routes: withInstructions,
+          selectedRoute: 'fuel-optimized',
+          source,
+          destination,
+          stops,
+          vehicleId,
+        });
+
+        return;
+      }
+
+      alert('Route planning failed and no offline route is available for this trip yet.');
     } finally {
       setIsLoading(false);
     }
-  }, [source, destination, stops, vehicleId]);
+  }, [source, destination, stops, vehicleId, isOnline, transformBackendRoutes, warmOfflineMapCache, enrichRoutesWithInstructions]);
 
   const handleSelectRoute = useCallback((routeId) => {
     setSelectedRoute(routeId);
@@ -122,6 +218,25 @@ export default function Dashboard() {
           </button>
         </div>
 
+        <InstallAppButton canInstall={canInstall} onInstall={promptInstall} />
+
+        {!isOnline && (
+          <div className="connection-banner offline">
+            Offline mode active. Using cached routes, map tiles, and saved navigation instructions.
+          </div>
+        )}
+
+        {routeSource && (
+          <div className="connection-banner info">
+            {routeSource === 'online' && 'Route fetched from live routing service and saved for offline use.'}
+            {routeSource === 'offline-cache-match' && 'Using offline route pack for this exact trip.'}
+            {routeSource === 'offline-cache-last' && 'Using your most recent offline route pack.'}
+            {routeSource === 'offline-generated' && 'Using offline estimated route because live service is unavailable.'}
+          </div>
+        )}
+
+        {cacheBanner && <div className="connection-banner success">{cacheBanner}</div>}
+
         {activeTab === 'route' ? (
           <>
             <RouteInput
@@ -145,6 +260,10 @@ export default function Dashboard() {
                 onSelectRoute={handleSelectRoute}
                 vehicle={vehicle}
               />
+            )}
+
+            {routes && (
+              <NavigationInstructions route={activeRoute} isOnline={isOnline} />
             )}
           </>
         ) : (

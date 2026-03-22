@@ -173,6 +173,14 @@ export default function DataDashboard({ route, vehicle, show }) {
           <span className="dm-label">CO₂ Emission</span>
           <span className="dm-value">{usage.co2} kg</span>
         </div>
+        {usage.co2Savings > 0 && (
+          <div className="dash-metric">
+            <span className="dm-label">CO₂ Savings</span>
+            <span className="dm-value" style={{ color: 'var(--accent-green)', fontWeight: 'bold' }}>
+              -{usage.co2Savings} kg
+            </span>
+          </div>
+        )}
         <div className="segment-list">
           {segmentFuel.slice(0, 4).map((seg, i) => (
             <div className="segment-item" key={i}>
