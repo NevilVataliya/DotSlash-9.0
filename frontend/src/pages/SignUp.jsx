@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { registerUser } from '../lib/api';
 import './Auth.css';
 
 export default function SignUp() {
@@ -8,11 +9,18 @@ export default function SignUp() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Assuming successful local logic for demo purposes
-    if (name && email && password) {
-      navigate('/dashboard');
+    try {
+      if (name && email && password) {
+        // Backend requires a username. Let's create one from the email.
+        const username = email.split('@')[0];
+        await registerUser({ fullName: name, username, email, password });
+        // After successful registration, navigate to signin so they can log in
+        navigate('/signin');
+      }
+    } catch (err) {
+      alert(err.message || 'Registration failed');
     }
   };
 

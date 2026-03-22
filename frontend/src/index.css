@@ -1594,4 +1594,121 @@ body,
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
+
+/* ==================== USER PROFILE WIDGET ==================== */
+.user-profile-widget {
+  position: absolute;
+  top: var(--sp-lg);
+  right: var(--sp-lg);
+  z-index: 2000;
+  background: var(--bg-panel);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: var(--sp-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 260px;
+  animation: slideInRight 0.4s var(--transition-slow);
+}
+
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.user-profile-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-md);
+  margin-bottom: var(--sp-md);
+}
+
+.user-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  background: linear-gradient(135deg, var(--accent-green), #00B0FF);
+  color: #000;
+  font-weight: 700;
+  font-size: var(--fs-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow-green);
+}
+
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-info h4 {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-email {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.logout-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 18px;
+  padding: 4px;
+  transition: all var(--transition-fast);
+}
+
+.logout-btn:hover {
+  color: var(--accent-red);
+  transform: scale(1.1);
+}
+
+.user-credits-panel {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-sm) 0;
+}
+
+.credit-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+}
+
+.credit-icon {
+  font-size: 20px;
+}
+
+.credit-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.credit-value {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+.credit-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.credit-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border-color);
+}
 

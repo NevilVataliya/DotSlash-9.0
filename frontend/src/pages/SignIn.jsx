@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { loginUser } from '../lib/api';
 import './Auth.css';
 
 export default function SignIn() {
@@ -7,11 +8,15 @@ export default function SignIn() {
   const [password, setPassword] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Assuming successful local logic for demo purposes
-    if (email && password) {
-      navigate('/dashboard');
+    try {
+      if (email && password) {
+        await loginUser({ email, password });
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      alert(err.message || 'Login failed');
     }
   };
 

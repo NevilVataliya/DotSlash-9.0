@@ -5,6 +5,7 @@ import RouteInput from '../components/RouteInput';
 import RouteComparison from '../components/RouteComparison';
 import DataDashboard from '../components/DataDashboard';
 import RidePool from '../components/RidePool';
+import UserProfile from '../components/UserProfile';
 import { VEHICLE_PROFILES, PREDEFINED_LOCATIONS } from '../data/demoData';
 import { distanceToRoute } from '../utils/routeUtils';
 
@@ -274,6 +275,9 @@ export default function Dashboard() {
 
   return (
     <div className="app" style={{ '--translate-y': `${translateY}vh` }}>
+      {/* Floating User Profile Widget */}
+      <UserProfile />
+
       {/* Full-screen map */}
       <MapView
         routes={routes}
